@@ -1,7 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "DSP/ThreeBandExpander.h"
+#include "DSP/MultiBandExpander.h"
 
 class TriExpandAudioProcessor final : public juce::AudioProcessor
 {
@@ -49,7 +49,7 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    const triexpand::ThreeBandExpander::Meters& getMeters() const noexcept { return expander.getMeters(); }
+    const triexpand::MultiBandExpander::Meters& getMeters() const noexcept { return expander.getMeters(); }
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -65,7 +65,7 @@ private:
     std::atomic<float>* bypassParam        = nullptr;
     std::atomic<float>* softClipParam      = nullptr;
 
-    triexpand::ThreeBandExpander expander;
+    triexpand::MultiBandExpander expander;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriExpandAudioProcessor)
 };

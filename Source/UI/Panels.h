@@ -6,10 +6,18 @@
 namespace triexpand::ui
 {
 
-// Both panels are laid out in a fixed 1000 x 210 coordinate space
-// (the hardware faceplate's proportions); the editor scales them.
-inline constexpr int panelWidth  = 1000;
-inline constexpr int panelHeight = 210;
+// Both panels are laid out in a fixed coordinate space that the editor scales.
+// 3 bands: 1000 x 210 (the hardware faceplate's proportions). More bands add
+// gain-change meter rows, so the faceplate grows taller; everything except the
+// meter block is then centred vertically (sideOffset).
+inline constexpr int   panelWidth      = 1000;
+inline constexpr float meterRowSpacing = constants::numBands == 3 ? 29.0f : 20.0f;
+inline constexpr float firstMeterRowY  = 34.0f;
+inline constexpr float lastMeterRowY   = firstMeterRowY + meterRowSpacing * (float) (constants::numBands - 1);
+inline constexpr float impactRowY      = lastMeterRowY + 50.0f;
+inline constexpr int   panelHeight     = (int) (impactRowY + 14.0f + 54.0f);
+inline constexpr float sideOffset      = (float) (panelHeight - 210) * 0.5f;
+static_assert (constants::numBands != 3 || panelHeight == 210, "3-band layout must stay 1000 x 210");
 
 class FrontPanel final : public juce::Component
 {
@@ -21,7 +29,7 @@ public:
     void resized() override;
 
     // Called from the editor's timer (message thread).
-    void setMeterValues (const std::array<float, 3>& expansionDb, float impactDb);
+    void setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb);
 
     std::function<void()> onShowRear;
     std::function<void (float)> onDisplayChanged;
@@ -51,7 +59,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     juce::Slider displaySlider { juce::Slider::LinearVertical, juce::Slider::NoTextBox };
 
-    std::array<float, 3> meterExpDb {};
+    std::array<float, constants::numBands> meterExpDb {};
     float meterImpactDb = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FrontPanel)

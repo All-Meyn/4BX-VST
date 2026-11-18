@@ -14,50 +14,68 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-juce_add_plugin(TriExpand
-    PRODUCT_NAME                "Tri-Expand"
-    COMPANY_NAME                "All-Meyn"
-    BUNDLE_ID                   "com.allmeyn.triexpand"
-    PLUGIN_MANUFACTURER_CODE    Almy
-    PLUGIN_CODE                 Trx3
-    IS_SYNTH                    FALSE
-    NEEDS_MIDI_INPUT            FALSE
-    NEEDS_MIDI_OUTPUT           FALSE
-    IS_MIDI_EFFECT              FALSE
-    COPY_PLUGIN_AFTER_BUILD     FALSE
-    FORMATS                     VST3 Standalone)
+# Two plugins share all source code; the band count is set per target with
+# EXPANDER_NUM_BANDS (see Source/DSP/ExpanderConstants.h).
+#   Tri-Expand    3 bands (LF / MF / HF)
+#   Hepta-Expand  7 bands (crossovers 60 / 150 / 400 / 1k / 2.5k / 6k Hz)
+# Each has its own plugin code, so hosts treat them as separate plugins.
+function(add_expander_plugin target product_name bundle_id plugin_code num_bands)
+    juce_add_plugin(${target}
+        PRODUCT_NAME                "${product_name}"
+        COMPANY_NAME                "All-Meyn"
+        BUNDLE_ID                   "${bundle_id}"
+        PLUGIN_MANUFACTURER_CODE    Almy
+        PLUGIN_CODE                 ${plugin_code}
+        IS_SYNTH                    FALSE
+        NEEDS_MIDI_INPUT            FALSE
+        NEEDS_MIDI_OUTPUT           FALSE
+        IS_MIDI_EFFECT              FALSE
+        COPY_PLUGIN_AFTER_BUILD     FALSE
+        FORMATS                     VST3 Standalone)
 
-target_sources(TriExpand
-    PRIVATE
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/DSP/ThreeBandExpander.cpp
-        Source/UI/PanelWidgets.cpp
-        Source/UI/Panels.cpp)
+    target_sources(${target}
+        PRIVATE
+            Source/PluginProcessor.cpp
+            Source/PluginEditor.cpp
+            Source/DSP/MultiBandExpander.cpp
+            Source/UI/PanelWidgets.cpp
+            Source/UI/Panels.cpp)
 
-target_compile_definitions(TriExpand
-    PUBLIC
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+    target_compile_definitions(${target}
+        PUBLIC
+            EXPANDER_NUM_BANDS=${num_bands}
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_VST3_CAN_REPLACE_VST2=0)
 
-target_link_libraries(TriExpand
-    PRIVATE
-        juce::juce_audio_utils
-        juce::juce_dsp
-    PUBLIC
-        juce::juce_recommended_config_flags
-        juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags)
+    target_link_libraries(${target}
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_dsp
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
+            juce::juce_recommended_warning_flags)
+endfunction()
 
-# Offline DSP tests (no host needed): cmake --build build --target TriExpandTests && ./build/TriExpandTests_artefacts/<config>/TriExpandTests
-option(TRIEXPAND_BUILD_TESTS "Build the offline DSP test program" ON)
+add_expander_plugin(TriExpand   "Tri-Expand"   "com.allmeyn.triexpand"   Trx3 3)
+add_expander_plugin(HeptaExpand "Hepta-Expand" "com.allmeyn.heptaexpand" Hpx7 7)
+
+# Offline DSP tests (no host needed), one program per band count:
+#   cmake --build build --target TriExpandTests HeptaExpandTests
+#   ./build/TriExpandTests_artefacts/<config>/TriExpandTests
+#   ./build/HeptaExpandTests_artefacts/<config>/HeptaExpandTests
+option(TRIEXPAND_BUILD_TESTS "Build the offline DSP test programs" ON)
 if(TRIEXPAND_BUILD_TESTS)
-    juce_add_console_app(TriExpandTests PRODUCT_NAME "TriExpandTests")
-    target_sources(TriExpandTests PRIVATE tests/DspTests.cpp Source/DSP/ThreeBandExpander.cpp)
-    target_include_directories(TriExpandTests PRIVATE Source)
-    target_compile_definitions(TriExpandTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-    target_link_libraries(TriExpandTests
-        PRIVATE juce::juce_dsp
-        PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+    foreach(cfg "TriExpandTests;3" "HeptaExpandTests;7")
+        list(GET cfg 0 test_target)
+        list(GET cfg 1 num_bands)
+        juce_add_console_app(${test_target} PRODUCT_NAME "${test_target}")
+        target_sources(${test_target} PRIVATE tests/DspTests.cpp Source/DSP/MultiBandExpander.cpp)
+        target_include_directories(${test_target} PRIVATE Source)
+        target_compile_definitions(${test_target} PRIVATE EXPANDER_NUM_BANDS=${num_bands} JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        target_link_libraries(${test_target}
+            PRIVATE juce::juce_dsp
+            PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+    endforeach()
 endif()

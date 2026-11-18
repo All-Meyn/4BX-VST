@@ -8,13 +8,13 @@
 namespace triexpand
 {
 
-// Three-band, linear-in-dB upward/downward expander with transient
+// Multi-band (3 or 7 bands, see ExpanderConstants.h), linear-in-dB upward/downward expander with transient
 // ("impact") enhancement, modelled on the behaviour described in the original
 // hardware's owner's manual. Stereo channels share one detector per band
 // (linked), so the stereo image doesn't shift.
 //
 // Real-time safe: prepare() allocates; process() and setParameters() do not.
-class ThreeBandExpander
+class MultiBandExpander
 {
 public:
     struct Parameters
@@ -75,7 +75,22 @@ private:
     int numChannels = 0;
     float lastImpactReleaseMs = -1.0f;
 
-    juce::dsp::LinkwitzRileyFilter<float> lowMidSplit, midHighSplit, lowBandAllpass;
+    // Crossover tree: split k separates band k from everything above it. Band k is
+    // then passed through allpasses at every crossover above k, so all bands share
+    // the same phase and sum back flat.
+    static constexpr int numSplits    = constants::numBands - 1;
+    static constexpr int numAllpasses = (constants::numBands - 1) * (constants::numBands - 2) / 2;
+    static constexpr int allpassIndex (int band, int crossover) noexcept
+    {
+        // Allpasses for band b cover crossovers b+1 .. numSplits-1, stored band by band.
+        int offset = 0;
+        for (int b = 0; b < band; ++b)
+            offset += numSplits - 1 - b;
+        return offset + (crossover - band - 1);
+    }
+
+    std::array<juce::dsp::LinkwitzRileyFilter<float>, numSplits> splits;
+    std::array<juce::dsp::LinkwitzRileyFilter<float>, numAllpasses> allpasses;
     std::array<BandState, constants::numBands> bands {};
 
     juce::SmoothedValue<float> ratioMinusOne, transitionDb, hfTransitionDb,

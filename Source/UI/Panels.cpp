@@ -12,8 +12,17 @@ namespace
     constexpr float redThresholdsDb[6]    = { 1.0f, 3.0f, 5.0f, 7.0f, 9.0f, 11.0f };         // centre -> right
 
     constexpr float rowX = 312.0f, rowW = 208.0f;   // LED row extent
-    constexpr float rowYs[3] = { 34.0f, 63.0f, 92.0f }; // HF, MF, LF (top to bottom)
-    constexpr float impactRowY = 142.0f;
+    // Row r (top to bottom) shows band numBands-1-r (highest band at the top).
+    constexpr float rowY (int r) { return firstMeterRowY + meterRowSpacing * (float) r; }
+    constexpr float oy = sideOffset; // vertical offset for everything outside the meter block
+
+   #if EXPANDER_NUM_BANDS == 3
+    constexpr const char* badgeWord = "TRI";
+    constexpr float badgeSize = 40.0f;
+   #else
+    constexpr const char* badgeWord = "HEPTA";
+    constexpr float badgeSize = 30.0f;
+   #endif
     constexpr float rowLedW = 14.0f, rowLedH = 6.0f;
 
     juce::Rectangle<float> rowLed (int index, float y) // index 0..11 left to right
@@ -90,13 +99,13 @@ void FrontPanel::setUpStepped (Stepped& s, juce::AudioProcessorValueTreeState& a
     s.attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, paramId, s.column);
 }
 
-void FrontPanel::setMeterValues (const std::array<float, 3>& expansionDb, float impactDb)
+void FrontPanel::setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb)
 {
     meterExpDb = expansionDb;
     meterImpactDb = impactDb;
-    repaint (juce::Rectangle<int> ((int) rowX - 4, 26, (int) rowW + 8, 74));
+    repaint (juce::Rectangle<int> ((int) rowX - 4, (int) firstMeterRowY - 8, (int) rowW + 8, (int) (lastMeterRowY - firstMeterRowY) + 16));
     repaint (juce::Rectangle<int> ((int) rowX - 4, (int) impactRowY - 8, (int) rowW + 8, 16));
-    repaint (bypassButton.getBounds().withY (104).withHeight (14)); // bypass LED (host automation)
+    repaint (bypassButton.getBounds().withY (104 + (int) oy).withHeight (14)); // bypass LED (host automation)
 }
 
 void FrontPanel::drawGainRow (juce::Graphics& g, float y, float expDb) const
@@ -115,8 +124,8 @@ void FrontPanel::drawImpactRow (juce::Graphics& g, float y, float impactDb) cons
 
 void FrontPanel::drawArrows (juce::Graphics& g, const Stepped& s) const
 {
-    drawTriangle (g, { (float) s.down.getBounds().getCentreX(), 107.0f }, false);
-    drawTriangle (g, { (float) s.up.getBounds().getCentreX(),   107.0f }, true);
+    drawTriangle (g, { (float) s.down.getBounds().getCentreX(), 107.0f + oy }, false);
+    drawTriangle (g, { (float) s.up.getBounds().getCentreX(),   107.0f + oy }, true);
 }
 
 void FrontPanel::drawColumnScale (juce::Graphics& g, const LedColumn& col,
@@ -149,14 +158,14 @@ void FrontPanel::paint (juce::Graphics& g)
 
     // Badge.
     g.setColour (colours::legend);
-    g.setFont (juce::Font (juce::FontOptions (40.0f, juce::Font::bold)).withExtraKerningFactor (-0.02f));
-    g.drawText ("TRI", juce::Rectangle<float> (34.0f, 22.0f, 106.0f, 42.0f), juce::Justification::centredLeft);
+    g.setFont (juce::Font (juce::FontOptions (badgeSize, juce::Font::bold)).withExtraKerningFactor (-0.02f));
+    g.drawText (badgeWord, juce::Rectangle<float> (34.0f, 22.0f + oy, 106.0f, 42.0f), juce::Justification::centredLeft);
     g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.32f));
-    g.drawText ("EXPAND", juce::Rectangle<float> (36.0f, 64.0f, 106.0f, 16.0f), juce::Justification::centredLeft);
+    g.drawText ("EXPAND", juce::Rectangle<float> (36.0f, 64.0f + oy, 106.0f, 16.0f), juce::Justification::centredLeft);
 
     // Rear-panel button legend.
-    drawLegend (g, "REAR", { 26.0f, 152.0f, 50.0f, 10.0f }, 8.0f);
-    drawLegend (g, "PANEL", { 26.0f, 162.0f, 50.0f, 10.0f }, 8.0f);
+    drawLegend (g, "REAR", { 26.0f, 152.0f + oy, 50.0f, 10.0f }, 8.0f);
+    drawLegend (g, "PANEL", { 26.0f, 162.0f + oy, 50.0f, 10.0f }, 8.0f);
 
     // Volume & expansion columns.
     drawColumnScale (g, volume.column, { "+10dB", "0dB", "-10dB", "-20dB", "-30dB" }, false, 34.0f);
@@ -164,23 +173,30 @@ void FrontPanel::paint (juce::Graphics& g)
     drawColumnScale (g, expansion.column, { "1.5/1", "1.4/1", "1.3/1", "1.2/1", "1.1/1" }, false, 28.0f);
     drawArrows (g, volume);
     drawArrows (g, expansion);
-    drawLegend (g, "VOLUME",    { 135.0f, 156.0f, 66.0f, 10.0f }, 8.5f);
-    drawLegend (g, "EXPANSION", { 210.0f, 156.0f, 72.0f, 10.0f }, 8.5f);
+    drawLegend (g, "VOLUME",    { 135.0f, 156.0f + oy, 66.0f, 10.0f }, 8.5f);
+    drawLegend (g, "EXPANSION", { 210.0f, 156.0f + oy, 72.0f, 10.0f }, 8.5f);
 
     // Gain-change rows.
-    const char* rowNames[3] = { "HF", "MF", "LF" };
-    for (int r = 0; r < 3; ++r)
+    for (int r = 0; r < constants::numBands; ++r)
     {
-        drawLegend (g, rowNames[r], { rowX - 30.0f, rowYs[r] - 5.0f, 22.0f, 10.0f }, 8.5f, juce::Justification::centredRight);
-        drawLegend (g, rowNames[r], { rowX + rowW + 8.0f, rowYs[r] - 5.0f, 22.0f, 10.0f }, 8.5f, juce::Justification::centredLeft);
-        drawGainRow (g, rowYs[r], meterExpDb[(size_t) (2 - r)]);
+        const int band = constants::numBands - 1 - r;
+        const char* name = constants::bandNames[band];
+        const float y = rowY (r);
+        // Names on both sides when there's room (3 bands); right side only for more bands,
+        // where the left would collide with the Expansion scale.
+        if (constants::numBands == 3)
+            drawLegend (g, name, { rowX - 30.0f, y - 5.0f, 22.0f, 10.0f }, 8.5f, juce::Justification::centredRight);
+        drawLegend (g, name, { rowX + rowW + 8.0f, y - 5.0f, constants::numBands == 3 ? 22.0f : 34.0f, 10.0f }, 8.5f,
+                    juce::Justification::centredLeft);
+        drawGainRow (g, y, meterExpDb[(size_t) band]);
     }
-    drawLegend (g, "-20dB", { rowX - 4.0f, 103.0f, 40.0f, 9.0f }, 7.5f, juce::Justification::centredLeft);
-    drawLegend (g, "GAIN CHANGE", { rowX, 103.0f, rowW, 9.0f }, 8.5f);
-    drawLegend (g, "+12dB", { rowX + rowW - 36.0f, 103.0f, 40.0f, 9.0f }, 7.5f, juce::Justification::centredRight);
+    const float gainLabelY = lastMeterRowY + 11.0f;
+    drawLegend (g, "-20dB", { rowX - 4.0f, gainLabelY, 40.0f, 9.0f }, 7.5f, juce::Justification::centredLeft);
+    drawLegend (g, "GAIN CHANGE", { rowX, gainLabelY, rowW, 9.0f }, 8.5f);
+    drawLegend (g, "+12dB", { rowX + rowW - 36.0f, gainLabelY, 40.0f, 9.0f }, 7.5f, juce::Justification::centredRight);
 
     drawImpactRow (g, impactRowY, meterImpactDb);
-    drawLegend (g, "IMPACT RESTORATION", { rowX, 156.0f, rowW, 10.0f }, 8.5f);
+    drawLegend (g, "IMPACT RESTORATION", { rowX, impactRowY + 14.0f, rowW, 10.0f }, 8.5f);
 
     // Transition level & impact restoration columns.
     {
@@ -196,49 +212,50 @@ void FrontPanel::paint (juce::Graphics& g)
     }
     drawArrows (g, transition);
     drawArrows (g, impact);
-    drawLegend (g, "TRANSITION", { 548.0f, 156.0f, 72.0f, 10.0f }, 8.5f);
-    drawLegend (g, "LEVEL",      { 548.0f, 166.0f, 72.0f, 10.0f }, 8.5f);
-    drawLegend (g, "IMPACT",      { 622.0f, 156.0f, 80.0f, 10.0f }, 8.5f);
-    drawLegend (g, "RESTORATION", { 622.0f, 166.0f, 80.0f, 10.0f }, 8.5f);
+    drawLegend (g, "TRANSITION", { 548.0f, 156.0f + oy, 72.0f, 10.0f }, 8.5f);
+    drawLegend (g, "LEVEL",      { 548.0f, 166.0f + oy, 72.0f, 10.0f }, 8.5f);
+    drawLegend (g, "IMPACT",      { 622.0f, 156.0f + oy, 80.0f, 10.0f }, 8.5f);
+    drawLegend (g, "RESTORATION", { 622.0f, 166.0f + oy, 80.0f, 10.0f }, 8.5f);
 
     // Model legend, top right.
-    drawLegend (g, "MULTI-BAND EXPANDER", { 715.0f, 30.0f, 170.0f, 10.0f }, 9.0f);
-    drawLegend (g, "WITH",                { 715.0f, 41.0f, 170.0f, 10.0f }, 9.0f);
-    drawLegend (g, "IMPACT RESTORATION",  { 715.0f, 52.0f, 170.0f, 10.0f }, 9.0f);
+    drawLegend (g, "MULTI-BAND EXPANDER", { 715.0f, 30.0f + oy, 170.0f, 10.0f }, 9.0f);
+    drawLegend (g, "WITH",                { 715.0f, 41.0f + oy, 170.0f, 10.0f }, 9.0f);
+    drawLegend (g, "IMPACT RESTORATION",  { 715.0f, 52.0f + oy, 170.0f, 10.0f }, 9.0f);
 
     // Dark receiver window (decorative, as on the hardware).
     g.setColour (juce::Colour (0xff0a0a0b));
-    g.fillRect (juce::Rectangle<float> (940.0f, 24.0f, 40.0f, 24.0f));
+    g.fillRect (juce::Rectangle<float> (940.0f, 24.0f + oy, 40.0f, 24.0f));
     g.setColour (juce::Colours::white.withAlpha (0.05f));
-    g.drawRect (juce::Rectangle<float> (940.0f, 24.0f, 40.0f, 24.0f), 0.8f);
+    g.drawRect (juce::Rectangle<float> (940.0f, 24.0f + oy, 40.0f, 24.0f), 0.8f);
 
     // Bypass: LED above, legend below.
     {
         const auto b = bypassButton.getBounds().toFloat();
-        drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ b.getCentreX(), 111.0f }),
+        drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ b.getCentreX(), 111.0f + oy }),
                  colours::ledRed, bypassButton.getToggleState() ? 1.0f : 0.0f, display);
-        drawLegend (g, "BYPASS", { b.getCentreX() - 30.0f, 156.0f, 60.0f, 10.0f }, 8.5f);
+        drawLegend (g, "BYPASS", { b.getCentreX() - 30.0f, 156.0f + oy, 60.0f, 10.0f }, 8.5f);
     }
-    drawLegend (g, "DISPLAY", { 935.0f, 156.0f, 50.0f, 10.0f }, 8.5f);
+    drawLegend (g, "DISPLAY", { 935.0f, 156.0f + oy, 50.0f, 10.0f }, 8.5f);
 }
 
 void FrontPanel::resized()
 {
-    rearButton.setBounds (34, 126, 30, 14);
+    const int dy = (int) oy;
+    rearButton.setBounds (34, 126 + dy, 30, 14);
 
-    const auto layoutStepped = [] (Stepped& s, int columnX, int downX, int upX)
+    const auto layoutStepped = [dy] (Stepped& s, int columnX, int downX, int upX)
     {
-        s.column.setBounds (columnX, 28, 14, 70);
-        s.down.setBounds (downX, 116, 14, 30);
-        s.up.setBounds (upX, 116, 14, 30);
+        s.column.setBounds (columnX, 28 + dy, 14, 70);
+        s.down.setBounds (downX, 116 + dy, 14, 30);
+        s.up.setBounds (upX, 116 + dy, 14, 30);
     };
     layoutStepped (volume,     162, 145, 179);
     layoutStepped (expansion,  239, 222, 256);
     layoutStepped (transition, 577, 561, 595);
     layoutStepped (impact,     654, 638, 672);
 
-    bypassButton.setBounds (900, 128, 30, 14);
-    displaySlider.setBounds (952, 82, 16, 64);
+    bypassButton.setBounds (900, 128 + dy, 30, 14);
+    displaySlider.setBounds (952, 82 + dy, 16, 64);
 }
 
 //==============================================================================
@@ -307,8 +324,9 @@ void RearPanel::paint (juce::Graphics& g)
     for (float x = 0.0f; x < bounds.getRight(); x += 3.0f)
         g.drawVerticalLine ((int) x, 0.0f, bounds.getBottom());
 
-    drawLegend (g, "MODEL TRI-EXPAND", { 34.0f, 22.0f, 200.0f, 12.0f }, 10.0f, juce::Justification::centredLeft);
-    drawLegend (g, "REAR PANEL CONTROLS", { 34.0f, 36.0f, 200.0f, 10.0f }, 8.0f, juce::Justification::centredLeft,
+    drawLegend (g, "MODEL " + juce::String (JucePlugin_Name).toUpperCase(), { 34.0f, 22.0f + oy, 200.0f, 12.0f }, 10.0f,
+                juce::Justification::centredLeft);
+    drawLegend (g, "REAR PANEL CONTROLS", { 34.0f, 36.0f + oy, 200.0f, 10.0f }, 8.0f, juce::Justification::centredLeft,
                 colours::legend.withAlpha (0.6f));
 
     // Decorative RCA jack pairs.
@@ -321,17 +339,17 @@ void RearPanel::paint (juce::Graphics& g)
     };
     for (float x : { 120.0f, 150.0f })
         for (float y : { 95.0f, 130.0f })
-            jack (x, y);
-    drawLegend (g, "IN", { 105.0f, 150.0f, 60.0f, 10.0f }, 8.0f);
+            jack (x, y + oy);
+    drawLegend (g, "IN", { 105.0f, 150.0f + oy, 60.0f, 10.0f }, 8.0f);
     for (float x : { 790.0f, 820.0f })
         for (float y : { 95.0f, 130.0f })
-            jack (x, y);
-    drawLegend (g, "OUT", { 775.0f, 150.0f, 60.0f, 10.0f }, 8.0f);
+            jack (x, y + oy);
+    drawLegend (g, "OUT", { 775.0f, 150.0f + oy, 60.0f, 10.0f }, 8.0f);
 
-    drawLegend (g, "IMPACT", { releasePot.getX() - 10.0f, 52.0f, (float) releasePot.getWidth() + 20.0f, 10.0f }, 8.5f);
-    drawLegend (g, "RELEASE RATE", { releasePot.getX() - 10.0f, 62.0f, (float) releasePot.getWidth() + 20.0f, 10.0f }, 8.5f);
-    drawLegend (g, "HF", { hfPot.getX() - 10.0f, 52.0f, (float) hfPot.getWidth() + 20.0f, 10.0f }, 8.5f);
-    drawLegend (g, "TRANSITION LEVEL", { hfPot.getX() - 20.0f, 62.0f, (float) hfPot.getWidth() + 40.0f, 10.0f }, 8.5f);
+    drawLegend (g, "IMPACT", { releasePot.getX() - 10.0f, 52.0f + oy, (float) releasePot.getWidth() + 20.0f, 10.0f }, 8.5f);
+    drawLegend (g, "RELEASE RATE", { releasePot.getX() - 10.0f, 62.0f + oy, (float) releasePot.getWidth() + 20.0f, 10.0f }, 8.5f);
+    drawLegend (g, "HF", { hfPot.getX() - 10.0f, 52.0f + oy, (float) hfPot.getWidth() + 20.0f, 10.0f }, 8.5f);
+    drawLegend (g, "TRANSITION LEVEL", { hfPot.getX() - 20.0f, 62.0f + oy, (float) hfPot.getWidth() + 40.0f, 10.0f }, 8.5f);
 
     drawLegend (g, "ms", { releasePot.getX() + 0.0f, (float) releasePot.getBottom() + 1.0f, (float) releasePot.getWidth(), 9.0f }, 7.5f,
                 juce::Justification::centred, colours::legend.withAlpha (0.6f));
@@ -358,11 +376,12 @@ void RearPanel::paint (juce::Graphics& g)
 
 void RearPanel::resized()
 {
-    releasePot.setBounds (330, 76, 80, 96);
-    hfPot.setBounds (480, 76, 80, 96);
-    softClipButton.setBounds (620, 112, 30, 14);
-    gpuButton.setBounds (700, 112, 30, 14);
-    frontButton.setBounds (920, 126, 30, 14);
+    const int dy = (int) oy;
+    releasePot.setBounds (330, 76 + dy, 80, 96);
+    hfPot.setBounds (480, 76 + dy, 80, 96);
+    softClipButton.setBounds (620, 112 + dy, 30, 14);
+    gpuButton.setBounds (700, 112 + dy, 30, 14);
+    frontButton.setBounds (920, 126 + dy, 30, 14);
 }
 
 } // namespace triexpand::ui

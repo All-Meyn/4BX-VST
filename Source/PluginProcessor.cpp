@@ -62,7 +62,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::cre
 
 void TriExpandAudioProcessor::pushParametersToDsp() noexcept
 {
-    triexpand::ThreeBandExpander::Parameters p;
+    triexpand::MultiBandExpander::Parameters p;
     p.expansionPercent = expansionParam->load();
     p.transitionDb     = transitionParam->load();
     p.hfTransitionDb   = hfTransitionParam->load();
