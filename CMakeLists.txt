@@ -30,7 +30,8 @@ juce_add_plugin(FourBX
 target_sources(FourBX
     PRIVATE
         Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp)
+        Source/PluginEditor.cpp
+        Source/DSP/ThreeBandExpander.cpp)
 
 target_compile_definitions(FourBX
     PUBLIC
@@ -46,3 +47,15 @@ target_link_libraries(FourBX
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# Offline DSP tests (no host needed): cmake --build build --target FourBXTests && ./build/FourBXTests_artefacts/<config>/FourBXTests
+option(FOURBX_BUILD_TESTS "Build the offline DSP test program" ON)
+if(FOURBX_BUILD_TESTS)
+    juce_add_console_app(FourBXTests PRODUCT_NAME "FourBXTests")
+    target_sources(FourBXTests PRIVATE tests/DspTests.cpp Source/DSP/ThreeBandExpander.cpp)
+    target_include_directories(FourBXTests PRIVATE Source)
+    target_compile_definitions(FourBXTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(FourBXTests
+        PRIVATE juce::juce_dsp
+        PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+endif()

@@ -1,6 +1,28 @@
 # 4BX-VST
 
-Audio plugin (VST3 + Standalone) built with [JUCE](https://juce.com) 8 and CMake.
+A 3-band dynamic-range expander with transient "impact" enhancement, modelled on
+the behaviour described in the owner's manual of a classic 1980s hi-fi expander.
+VST3 + Standalone, built with [JUCE](https://juce.com) 8 and CMake.
+
+## Controls
+
+| Control | Range | What it does |
+|---|---|---|
+| Expansion | 0–50 % | Ratio 1:1 to 1:1.5 in every band. Gain = (ratio − 1) × (band RMS level − Transition). |
+| Transition | −40 to 0 dBFS | The unity-gain pivot: louder material is expanded up, quieter material down. |
+| HF Trim | ±10 dB | Offsets the pivot of the high band (above ~6 kHz) only. Raise it to tame hiss/cymbals. |
+| Impact | 0–100 % | Upward-only boost (up to +12 dB per band) on sudden attacks. |
+| Impact Release | 25–1500 ms | How fast the impact boost decays (scaled ×1.5 on LF, ×0.6 on HF). |
+| Volume | −40 to +10 dB | Output level. |
+| Bypass | on/off | Removes expansion and impact; Volume still applies (as on the hardware). |
+| Soft Clip | on/off | Smooth limiting above −1 dBFS so peaks never exceed 0 dBFS. Off by default. |
+
+Bands: LF < 150 Hz, MF 150 Hz–6 kHz, HF > 6 kHz (Linkwitz-Riley 24 dB/oct; sums flat).
+Stereo channels share one detector per band. Meters: yellow = downward expansion
+to −20 dB, red = upward expansion to +12 dB; IMP = impact boost (loudest band).
+
+All tunable constants live in `Source/DSP/ExpanderConstants.h`, each marked as
+taken from the manual or chosen by us.
 JUCE is downloaded automatically at configure time; it's licensed to this
 project under the GPLv3 (see `LICENSE`).
 
@@ -19,7 +41,22 @@ cmake --build build
 Output: `build/FourBX_artefacts/Release/VST3/4BX.vst3` and
 `build/FourBX_artefacts/Release/Standalone/4BX`.
 
+## Tests
+
+An offline test program checks the DSP (flat crossover sum, expansion law,
+gain limits, HF trim, impact behaviour, bypass, soft clip, mono):
+
+```bash
+cmake --build build --target FourBXTests
+./build/FourBXTests_artefacts/Release/FourBXTests
+```
+
+Turn it off with `-DFOURBX_BUILD_TESTS=OFF`.
+
 ## Layout
 
-- `Source/PluginProcessor.*` — audio processing and parameters
-- `Source/PluginEditor.*` — plugin UI
+- `Source/DSP/ThreeBandExpander.*` — the DSP (no plugin dependencies)
+- `Source/DSP/ExpanderConstants.h` — crossover points, time constants, limits
+- `Source/PluginProcessor.*` — parameters, state, host glue
+- `Source/PluginEditor.*` — UI and meters
+- `tests/DspTests.cpp` — offline DSP tests
