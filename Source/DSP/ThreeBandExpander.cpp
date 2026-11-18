@@ -42,7 +42,9 @@ void ThreeBandExpander::prepare (double newSampleRate, int maxBlockSize, int new
     for (int b = 0; b < numBands; ++b)
     {
         auto& s = bands[(size_t) b];
-        s.rmsCoeff         = onePoleCoeff (rmsTimeSeconds[b], sampleRate);
+        s.rmsCoeff          = onePoleCoeff (rmsTimeSeconds[b], sampleRate);
+        s.levelAttackCoeff  = onePoleCoeff (levelAttackSeconds[b], sampleRate);
+        s.levelReleaseCoeff = onePoleCoeff (levelReleaseSeconds[b], sampleRate);
         s.fastAttackCoeff  = onePoleCoeff (impactFastAttackSeconds, sampleRate);
         s.fastReleaseCoeff = onePoleCoeff (impactFastReleaseSeconds[b], sampleRate);
         s.slowCoeff        = onePoleCoeff (impactSlowTimeSeconds[b], sampleRate);
@@ -65,6 +67,7 @@ void ThreeBandExpander::reset()
     for (auto& s : bands)
     {
         s.meanSquare = 0.0f;
+        s.levelDb = powerToDb (detectorFloor);
         s.fastEnv = 0.0f;
         s.slowEnvDb = amplitudeToDb (impactEnvFloor);
         s.impactGainDb = 0.0f;
@@ -109,7 +112,10 @@ float ThreeBandExpander::computeBandGainDb (int band, float meanSquareIn, float 
 
     // --- Linear-in-dB expansion from a true-RMS detector -------------------
     s.meanSquare += s.rmsCoeff * (meanSquareIn - s.meanSquare);
-    const float levelDb = powerToDb (s.meanSquare + detectorFloor);
+    const float rmsDb = powerToDb (s.meanSquare + detectorFloor);
+    const float levelC = rmsDb > s.levelDb ? s.levelAttackCoeff : s.levelReleaseCoeff;
+    s.levelDb += levelC * (rmsDb - s.levelDb);
+    const float levelDb = s.levelDb;
     const float expansionDb = juce::jlimit (maxDownwardExpansionDb, maxUpwardExpansionDb,
                                             rMinus1 * (levelDb - pivotDb));
 
@@ -120,7 +126,8 @@ float ThreeBandExpander::computeBandGainDb (int band, float meanSquareIn, float 
     s.slowEnvDb += s.slowCoeff * (fastDb - s.slowEnvDb);
 
     const float riseDb = fastDb - s.slowEnvDb - impactDeadbandDb;
-    const float targetImpactDb = juce::jlimit (0.0f, maxImpactDb, impactAmt * impactSensitivity * riseDb);
+    // Impact amount sets the ceiling: 50% -> at most +6 dB, 100% -> +12 dB.
+    const float targetImpactDb = juce::jlimit (0.0f, impactAmt * maxImpactDb, impactSensitivity * riseDb);
 
     // Instant attack, adjustable exponential release.
     if (targetImpactDb > s.impactGainDb)

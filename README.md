@@ -11,7 +11,7 @@ VST3 + Standalone, built with [JUCE](https://juce.com) 9 and CMake.
 | Expansion | 0–50 % | Ratio 1:1 to 1:1.5 in every band. Gain = (ratio − 1) × (band RMS level − Transition). |
 | Transition | −40 to 0 dBFS | The unity-gain pivot: louder material is expanded up, quieter material down. |
 | HF Trim | ±10 dB | Offsets the pivot of the high band (above ~6 kHz) only. Raise it to tame hiss/cymbals. |
-| Impact | 0–100 % | Upward-only boost (up to +12 dB per band) on sudden attacks. |
+| Impact | 0–100 % | Upward-only boost on sudden attacks; the % sets the maximum boost per band (50 % = +6 dB, 100 % = +12 dB). |
 | Impact Release | 25–1500 ms | How fast the impact boost decays (scaled ×1.5 on LF, ×0.6 on HF). |
 | Volume | −40 to +10 dB | Output level. |
 | Bypass | on/off | Removes expansion and impact; Volume still applies (as on the hardware). |
