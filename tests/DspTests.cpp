@@ -1,5 +1,5 @@
 // Offline checks for triexpand::MultiBandExpander. Exits non-zero on failure.
-// Built once per band count (EXPANDER_NUM_BANDS = 3 or 7).
+// Built once per band count (EXPANDER_NUM_BANDS = 3, 4 or 7).
 #include "DSP/MultiBandExpander.h"
 
 #include <cmath>
@@ -29,7 +29,8 @@ int bandOf (double hz)
 // Test tones well inside a band. With 7 narrow bands a sine at band centre still
 // loses ~2.6 dB to the two neighbouring crossovers, so gain-law checks get a wider
 // tolerance there (the law itself is the same code, checked exactly at 3 bands).
-const double midHz  = numBands == 3 ? 1000.0 : 632.0;   // 3: MF; 7: centre of 400 Hz - 1 kHz
+// 3: MF; 4: centre of LMF (150 Hz - 1 kHz); 7: centre of MID (400 Hz - 1 kHz)
+const double midHz  = numBands == 3 ? 1000.0 : (numBands == 4 ? 387.0 : 632.0);
 const int    midBand = bandOf (midHz);
 const int    topBand = numBands - 1;
 const double lawTol  = 0.5;

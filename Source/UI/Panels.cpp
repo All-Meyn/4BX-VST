@@ -19,6 +19,9 @@ namespace
    #if EXPANDER_NUM_BANDS == 3
     constexpr const char* badgeWord = "TRI";
     constexpr float badgeSize = 40.0f;
+   #elif EXPANDER_NUM_BANDS == 4
+    constexpr const char* badgeWord = "QUAD";
+    constexpr float badgeSize = 36.0f;
    #else
     constexpr const char* badgeWord = "HEPTA";
     constexpr float badgeSize = 30.0f;
@@ -212,11 +215,13 @@ void FrontPanel::paint (juce::Graphics& g)
         const int band = constants::numBands - 1 - r;
         const char* name = constants::bandNames[band];
         const float y = rowY (r);
-        // Names on both sides when there's room (3 bands); right side only for more bands,
-        // where the left would collide with the Expansion scale.
-        if (constants::numBands == 3)
-            drawLegend (g, name, { rowX - 30.0f, y - 5.0f, 22.0f, 10.0f }, 8.5f, juce::Justification::centredRight);
-        drawLegend (g, name, { rowX + rowW + 8.0f, y - 5.0f, constants::numBands == 3 ? 22.0f : 34.0f, 10.0f }, 8.5f,
+        // Names on both sides when there's room (3 and 4 bands); right side only for 7,
+        // where the rows are too close and the left would collide with the Expansion scale.
+        if (constants::numBands <= 4)
+            drawLegend (g, name, constants::numBands == 3 ? juce::Rectangle<float> (rowX - 30.0f, y - 5.0f, 22.0f, 10.0f)
+                                                          : juce::Rectangle<float> (rowX - 34.0f, y - 5.0f, 26.0f, 10.0f),
+                        8.5f, juce::Justification::centredRight);
+        drawLegend (g, name, { rowX + rowW + 8.0f, y - 5.0f, constants::numBands <= 4 ? 26.0f : 34.0f, 10.0f }, 8.5f,
                     juce::Justification::centredLeft);
         drawGainRow (g, y, meterExpDb[(size_t) band]);
     }

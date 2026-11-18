@@ -3,7 +3,7 @@
 // Tunable constants for the multi-band expander.
 //
 // The band count is chosen per plugin at build time with EXPANDER_NUM_BANDS:
-// 3 = Tri-Expand, 7 = Hepta-Expand. Per-band tables below have one entry per band,
+// 3 = Tri-Expand, 4 = Quad-Expand, 7 = Hepta-Expand. Per-band tables below have one entry per band,
 // lowest band first.
 //
 // Values marked [manual] come from the original hardware owner's manual.
@@ -17,7 +17,7 @@
 namespace triexpand::constants
 {
     inline constexpr int numBands = EXPANDER_NUM_BANDS;
-    static_assert (numBands == 3 || numBands == 7, "EXPANDER_NUM_BANDS must be 3 or 7");
+    static_assert (numBands == 3 || numBands == 4 || numBands == 7, "EXPANDER_NUM_BANDS must be 3, 4 or 7");
 
 #if EXPANDER_NUM_BANDS == 3
     // ---- Tri-Expand: LF / MF / HF ----
@@ -40,6 +40,29 @@ namespace triexpand::constants
     inline constexpr bool hasAutoHeadroom = false; // Tri-Expand 1.0 behaviour kept
     inline constexpr bool hasAutoTransition = false;
     inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, 0.0f, 0.0f };
+#elif EXPANDER_NUM_BANDS == 4
+    // ---- Quad-Expand: LF / LMF / HMF / HF ----
+    // Crossovers. [chosen] Tri-Expand's 150 Hz and 6 kHz, with its mid band split at 1 kHz.
+    inline constexpr float crossoverHz[numBands - 1] = { 150.0f, 1000.0f, 6000.0f };
+    inline constexpr const char* bandNames[numBands] = { "LF", "LMF", "HMF", "HF" };
+
+    // Per-band timing [chosen]: LF and HF as Tri-Expand; the two mid bands in between.
+    inline constexpr float rmsTimeSeconds[numBands]      = { 0.050f, 0.015f, 0.008f, 0.005f };
+    inline constexpr float levelAttackSeconds[numBands]  = { 0.030f, 0.020f, 0.012f, 0.008f };
+    inline constexpr float levelReleaseSeconds[numBands] = { 0.400f, 0.300f, 0.200f, 0.150f };
+    inline constexpr float impactFastReleaseSeconds[numBands] = { 0.080f, 0.030f, 0.015f, 0.010f };
+    inline constexpr float impactSlowTimeSeconds[numBands]    = { 0.150f, 0.100f, 0.060f, 0.040f };
+    inline constexpr float impactReleaseBandScale[numBands]   = { 1.5f, 1.15f, 0.85f, 0.6f };
+
+    // Bass Restoration acts on the LF band (below 150 Hz). [chosen]
+    inline constexpr int numBassBands = 1;
+
+    // Band-width compensation (see Hepta-Expand below): LF and HF are Tri-Expand's own
+    // bands; the split mid bands get their share of Tri-Expand's MF band. [chosen]
+    inline constexpr bool hasBandPivotOffsets = true;
+    inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, -2.89f, -3.14f, 0.0f };
+    inline constexpr bool hasAutoHeadroom = true;
+    inline constexpr bool hasAutoTransition = true;
 #else
     // ---- Hepta-Expand: 7 bands ----
     // Crossovers. [chosen] Keeps Tri-Expand's 150 Hz and 6 kHz points, ~1.3 octaves apart.

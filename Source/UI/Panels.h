@@ -11,7 +11,7 @@ namespace triexpand::ui
 // gain-change meter rows, so the faceplate grows taller; everything except the
 // meter block is then centred vertically (sideOffset).
 inline constexpr int   panelWidth      = 1000;
-inline constexpr float meterRowSpacing = constants::numBands == 3 ? 29.0f : 20.0f;
+inline constexpr float meterRowSpacing = constants::numBands == 3 ? 29.0f : (constants::numBands == 4 ? 24.0f : 20.0f);
 inline constexpr float firstMeterRowY  = 34.0f;
 inline constexpr float lastMeterRowY   = firstMeterRowY + meterRowSpacing * (float) (constants::numBands - 1);
 inline constexpr float impactRowY      = lastMeterRowY + 50.0f;
