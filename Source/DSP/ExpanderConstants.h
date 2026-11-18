@@ -3,7 +3,7 @@
 // Tunable constants for the multi-band expander.
 //
 // The band count is chosen per plugin at build time with EXPANDER_NUM_BANDS:
-// 3 = Tri-Expand, 4 = Quad-Expand, 7 = Hepta-Expand. Per-band tables below have one entry per band,
+// 3 = Tri-Expand, 4 = Tetra-Expand, 7 = Hepta-Expand. Per-band tables below have one entry per band,
 // lowest band first.
 //
 // Values marked [manual] come from the original hardware owner's manual.
@@ -41,7 +41,7 @@ namespace triexpand::constants
     inline constexpr bool hasAutoTransition = false;
     inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, 0.0f, 0.0f };
 #elif EXPANDER_NUM_BANDS == 4
-    // ---- Quad-Expand: LF / LMF / HMF / HF ----
+    // ---- Tetra-Expand: LF / LMF / HMF / HF ----
     // Crossovers. [chosen] Tri-Expand's 150 Hz and 6 kHz, with its mid band split at 1 kHz.
     inline constexpr float crossoverHz[numBands - 1] = { 150.0f, 1000.0f, 6000.0f };
     inline constexpr const char* bandNames[numBands] = { "LF", "LMF", "HMF", "HF" };

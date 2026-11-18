@@ -25,8 +25,8 @@ namespace
     constexpr const char* badgeWord = "TRI";
     constexpr float badgeSize = 40.0f;
    #elif EXPANDER_NUM_BANDS == 4
-    constexpr const char* badgeWord = "QUAD";
-    constexpr float badgeSize = 36.0f;
+    constexpr const char* badgeWord = "TETRA";
+    constexpr float badgeSize = 30.0f;
    #else
     constexpr const char* badgeWord = "HEPTA";
     constexpr float badgeSize = 30.0f;
