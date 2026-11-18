@@ -204,6 +204,25 @@ int main()
         check (slow > fast + 1.0f, "150 ms after attack: 1500 ms release > 25 ms release", slow - fast);
     }
 
+    // 7b. Impact amount sets the ceiling: 50% -> at most +6 dB (was +12 dB, which pumped).
+    {
+        auto p = neutral();
+        p.impactPercent = 50.0f;
+        ThreeBandExpander ex;
+        const int onset = (int) (0.5 * sr);
+        run (p, 0.5 + 0.05, [&] (int i) { return (float) ((i < onset ? 0.001 : 0.5) * std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr)); }, 2, &ex);
+        const float peak = ex.getMeters().impactDb[1].load();
+        check (peak <= 6.01f && peak > 3.0f, "impact 50%: big attack boosts, but at most +6 dB", peak);
+    }
+
+    // 7c. Two-stage detector reads true RMS on bass too (no peak bias from attack/release).
+    {
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        const double g = steadyGainDb (p, 40.0, -10.0);
+        check (std::abs (g - 5.0) < 0.5, "40 Hz @ -10 dBFS, pivot -20, 50%: expect +5 dB", g);
+    }
+
     // 8. Expander bypass removes expansion and impact but keeps output volume.
     {
         auto p = neutral();

@@ -136,7 +136,6 @@ void FrontPanel::drawColumnScale (juce::Graphics& g, const LedColumn& col,
 
 void FrontPanel::paint (juce::Graphics& g)
 {
-    ++diagPaints;
     const auto bounds = getLocalBounds().toFloat();
 
     // Faceplate.

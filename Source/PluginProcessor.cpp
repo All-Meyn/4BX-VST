@@ -94,7 +94,6 @@ void FourBXAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     pushParametersToDsp();
     expander.process (buffer);
-    diagProcessBlocks.fetch_add (1, std::memory_order_relaxed);
 }
 
 juce::AudioProcessorEditor* FourBXAudioProcessor::createEditor()
@@ -104,14 +103,12 @@ juce::AudioProcessorEditor* FourBXAudioProcessor::createEditor()
 
 void FourBXAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    diagGetState.fetch_add (1, std::memory_order_relaxed);
     if (auto xml = apvts.copyState().createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void FourBXAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    diagSetState.fetch_add (1, std::memory_order_relaxed);
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
             apvts.replaceState (juce::ValueTree::fromXml (*xml));

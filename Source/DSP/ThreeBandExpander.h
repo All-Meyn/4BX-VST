@@ -50,11 +50,14 @@ private:
     struct BandState
     {
         float meanSquare = 0.0f;
+        float levelDb = -100.0f;
         float fastEnv = 0.0f;
         float slowEnvDb = -100.0f;
         float impactGainDb = 0.0f;
 
         float rmsCoeff = 0.0f;
+        float levelAttackCoeff = 0.0f;
+        float levelReleaseCoeff = 0.0f;
         float fastAttackCoeff = 0.0f;
         float fastReleaseCoeff = 0.0f;
         float slowCoeff = 0.0f;
