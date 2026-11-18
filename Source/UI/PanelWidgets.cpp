@@ -66,6 +66,15 @@ LedColumn::LedColumn (std::array<double, 5> values, const float& displayLevel)
     setRepaintsOnMouseActivity (false);
 }
 
+LedColumn::LedColumn (int numBarLeds, const float& displayLevel)
+    : juce::Slider (juce::Slider::LinearVertical, juce::Slider::NoTextBox),
+      barLeds (numBarLeds), display (displayLevel)
+{
+    setSliderSnapsToMousePosition (false); // a stray click must not jump the value
+    setMouseDragSensitivity (150);
+    setRepaintsOnMouseActivity (false);
+}
+
 LedColumn::~LedColumn()
 {
     if (valueEditor != nullptr)
@@ -84,6 +93,21 @@ void LedColumn::paint (juce::Graphics& g)
     g.setColour (colours::bezel);
     g.fillRoundedRectangle (r, 1.5f);
 
+    if (barLeds > 0)
+    {
+        // Filling bar: LED i (from the bottom) lights as the value passes its slot.
+        const double proportion = juce::jlimit (0.0, 1.0, valueToProportionOfLength (getValue()));
+        const float slot = (r.getHeight() - 4.0f) / (float) barLeds;
+        for (int i = 0; i < barLeds; ++i)
+        {
+            const float amount = (float) juce::jlimit (0.0, 1.0, proportion * barLeds - i);
+            auto led = juce::Rectangle<float> (r.getX() + 2.5f, r.getBottom() - 2.0f - slot * (float) (i + 1),
+                                               r.getWidth() - 5.0f, slot).reduced (0.0f, 0.8f);
+            drawLed (g, led, colours::ledRed, amount, display);
+        }
+    }
+    else
+    {
     const double v = getValue();
     const double spacing = std::abs (ledValues[1] - ledValues[0]);
     const float ledH = (r.getHeight() - 4.0f) / 5.0f;
@@ -94,6 +118,7 @@ void LedColumn::paint (juce::Graphics& g)
         auto led = juce::Rectangle<float> (r.getX() + 2.5f, r.getBottom() - 2.0f - ledH * (float) (i + 1),
                                            r.getWidth() - 5.0f, ledH).reduced (0.0f, 1.6f);
         drawLed (g, led, colours::ledRed, amount, display);
+    }
     }
 
     if (hasKeyboardFocus (false))

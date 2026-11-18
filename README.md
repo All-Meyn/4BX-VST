@@ -43,8 +43,9 @@ down. Offsets live in `ExpanderConstants.h` (`bandPivotOffsetDb`).
 ### Interface
 
 The window is styled as a hardware faceplate and scales with a fixed aspect ratio.
-Volume, Expansion, Transition and Impact use ▼/▲ buttons (hold to repeat) with an
-LED column as the readout; you can also drag or scroll a column, or double-click it
+Volume, Expansion, Transition and Impact (and Bass Restoration) use ▼/▲ buttons (hold
+to repeat) with an LED column as the readout: Volume and Expansion show a position on 5
+LEDs; Transition, Impact and Bass Restoration fill a 10-LED bar with a dB or 0–100 % scale; you can also drag or scroll a column, or double-click it
 to type a value. **REAR PANEL** flips to the back, which holds Impact Release,
 HF Transition, Soft Clip and (on Windows) **GPU DRAW**. **DISPLAY** sets LED
 brightness (saved with the session).

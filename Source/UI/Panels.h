@@ -46,6 +46,7 @@ private:
     struct Stepped
     {
         Stepped (std::array<double, 5> leds, const float& display) : column (leds, display) {}
+        Stepped (int barLeds, const float& display) : column (barLeds, display) {}
         LedColumn column;
         PanelButton down, up;
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
@@ -55,6 +56,8 @@ private:
     void drawGainRow (juce::Graphics&, float y, float expansionDb) const;
     void drawImpactRow (juce::Graphics&, float y, float impactDb) const;
     void drawArrows (juce::Graphics&, const Stepped&) const;
+    // Scale beside a bar column: `labels[i]` at proportion i / (labels.size() - 1) from the bottom.
+    void drawBarScale (juce::Graphics&, const LedColumn&, std::initializer_list<const char*> labels, float x) const;
     void drawColumnScale (juce::Graphics&, const LedColumn&, const std::array<const char*, 5>& labelsTopToBottom,
                           bool leftSide, float width) const;
 

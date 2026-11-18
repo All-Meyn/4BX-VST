@@ -16,6 +16,11 @@ namespace
     constexpr float rowY (int r) { return firstMeterRowY + meterRowSpacing * (float) r; }
     constexpr float oy = sideOffset; // vertical offset for everything outside the meter block
 
+    // Transition / Impact / Bass Restoration: 10-LED filling bars, 20 px wide (the
+    // LEDs then match the gain-change rows), centred where the old 14 px columns were.
+    constexpr int barColumnLeds = 10;
+    constexpr int barColumnWidth = 20;
+
    #if EXPANDER_NUM_BANDS == 3
     constexpr const char* badgeWord = "TRI";
     constexpr float badgeSize = 40.0f;
@@ -51,9 +56,9 @@ FrontPanel::FrontPanel (TriExpandAudioProcessor& p, float& displayLevel)
     : display (displayLevel),
       volume     ({ -30.0, -20.0, -10.0, 0.0, 10.0 }, displayLevel),
       expansion  ({ 10.0, 20.0, 30.0, 40.0, 50.0 }, displayLevel),
-      transition ({ -40.0, -30.0, -20.0, -10.0, 0.0 }, displayLevel),
-      impact     ({ 20.0, 40.0, 60.0, 80.0, 100.0 }, displayLevel),
-      bass       ({ 20.0, 40.0, 60.0, 80.0, 100.0 }, displayLevel)
+      transition (barColumnLeds, displayLevel),
+      impact     (barColumnLeds, displayLevel),
+      bass       (barColumnLeds, displayLevel)
 {
     setUpStepped (volume,     p.apvts, IDs::volume,     1.0);
     setUpStepped (expansion,  p.apvts, IDs::expansion,  1.0);
@@ -153,6 +158,21 @@ void FrontPanel::drawArrows (juce::Graphics& g, const Stepped& s) const
 {
     drawTriangle (g, { (float) s.down.getBounds().getCentreX(), 107.0f + oy }, false);
     drawTriangle (g, { (float) s.up.getBounds().getCentreX(),   107.0f + oy }, true);
+}
+
+void FrontPanel::drawBarScale (juce::Graphics& g, const LedColumn& col,
+                               std::initializer_list<const char*> labels, float x) const
+{
+    const auto b = col.getBounds().toFloat();
+    const float span = b.getHeight() - 4.0f;
+    const int n = (int) labels.size();
+    int i = 0;
+    for (auto* text : labels)
+    {
+        const float y = b.getBottom() - 2.0f - span * (float) i / (float) (n - 1);
+        drawLegend (g, text, { x, y - 4.5f, 30.0f, 9.0f }, 7.0f, juce::Justification::centredLeft);
+        ++i;
+    }
 }
 
 void FrontPanel::drawColumnScale (juce::Graphics& g, const LedColumn& col,
@@ -255,6 +275,10 @@ void FrontPanel::paint (juce::Graphics& g)
     }
     drawArrows (g, transition);
     drawArrows (g, impact);
+    drawBarScale (g, transition.column, { "-40dB", "-30", "-20", "-10", "0dB" }, (float) transition.column.getRight() + 17.0f);
+    drawBarScale (g, impact.column, { "0%", "20%", "40%", "60%", "80%", "100%" }, (float) impact.column.getRight() + 3.0f);
+    if constexpr (hasBassRow)
+        drawBarScale (g, bass.column, { "0%", "20%", "40%", "60%", "80%", "100%" }, (float) bass.column.getRight() + 3.0f);
     if constexpr (hasAutoTransitionUi)
     {
         // AUTO: Transition is an offset from each band's long-term level.
@@ -275,7 +299,7 @@ void FrontPanel::paint (juce::Graphics& g)
 
     // Model legend, top right.
     // Moved right when the Bass Restoration column takes its place.
-    const float legendX = hasBassRow ? 765.0f : 715.0f;
+    const float legendX = hasBassRow ? 785.0f : 715.0f;
     drawLegend (g, "MULTI-BAND EXPANDER", { legendX, 30.0f + oy, 170.0f, 10.0f }, 9.0f);
     drawLegend (g, "WITH",                { legendX, 41.0f + oy, 170.0f, 10.0f }, 9.0f);
     drawLegend (g, hasBassRow ? "IMPACT & BASS RESTORATION" : "IMPACT RESTORATION",
@@ -302,18 +326,19 @@ void FrontPanel::resized()
     const int dy = (int) oy;
     rearButton.setBounds (34, 126 + dy, 30, 14);
 
-    const auto layoutStepped = [dy] (Stepped& s, int columnX, int downX, int upX)
+    const auto layoutStepped = [dy] (Stepped& s, int columnX, int downX, int upX, int width = 14)
     {
-        s.column.setBounds (columnX, 28 + dy, 14, 70);
+        s.column.setBounds (columnX, 28 + dy, width, 70);
         s.down.setBounds (downX, 116 + dy, 14, 30);
         s.up.setBounds (upX, 116 + dy, 14, 30);
     };
     layoutStepped (volume,     162, 145, 179);
     layoutStepped (expansion,  239, 222, 256);
-    layoutStepped (transition, 577, 561, 595);
-    layoutStepped (impact,     654, 638, 672);
+    constexpr int barShift = (barColumnWidth - 14) / 2; // keep the bars centred where the old columns were
+    layoutStepped (transition, 577 - barShift, 561, 595, barColumnWidth);
+    layoutStepped (impact,     654 - barShift, 638, 672, barColumnWidth);
     if constexpr (hasBassRow)
-        layoutStepped (bass,   731, 715, 749);
+        layoutStepped (bass,   731 - barShift, 715, 749, barColumnWidth);
 
     bypassButton.setBounds (900, 128 + dy, 30, 14);
     displaySlider.setBounds (952, 82 + dy, 16, 64);
