@@ -51,9 +51,6 @@ public:
 
     const fourbx::ThreeBandExpander::Meters& getMeters() const noexcept { return expander.getMeters(); }
 
-    // TEMPORARY diagnostics (Audacity 4 preview-fade investigation).
-    std::atomic<uint32_t> diagProcessBlocks { 0 }, diagSetState { 0 }, diagGetState { 0 };
-
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void pushParametersToDsp() noexcept;

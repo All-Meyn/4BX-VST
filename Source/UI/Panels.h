@@ -24,7 +24,6 @@ public:
     void setMeterValues (const std::array<float, 3>& expansionDb, float impactDb);
 
     std::function<void()> onShowRear;
-    int diagPaints = 0; // TEMPORARY diagnostics
     std::function<void (float)> onDisplayChanged;
 
 private:
