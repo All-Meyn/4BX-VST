@@ -132,7 +132,16 @@ void FourBXAudioProcessorEditor::updateDiagnostics()
           << "  editor enabled=" << (isEnabled() ? 1 : 0) << " showing=" << (isShowing() ? 1 : 0)
           << " alpha=" << juce::String (getAlpha(), 2)
           << "  size=" << getWidth() << "x" << getHeight();
-    diagLabel.setText (line1 + "\n" + juce::String (chain), juce::dontSendNotification);
+    // Also log to a file, because during Audacity's preview the window shows nothing.
+    static const juce::File logFile = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("4bx-diag.log");
+    {
+        juce::FileOutputStream out (logFile); // appends
+        if (out.openedOk())
+            out << juce::Time::getCurrentTime().formatted ("%H:%M:%S") << "." << juce::String (now % 1000).paddedLeft ('0', 3)
+                << "  " << line1 << "\n    " << juce::String (chain) << "\n";
+    }
+
+    diagLabel.setText (line1 + "\n" + juce::String (chain) + "\nlog: " + logFile.getFullPathName(), juce::dontSendNotification);
 }
 
 void FourBXAudioProcessorEditor::timerCallback()
@@ -173,6 +182,6 @@ void FourBXAudioProcessorEditor::resized()
 {
     const float scale = (float) getWidth() / (float) fourbx::ui::panelWidth;
     content.setTransform (juce::AffineTransform::scale (scale));
-    diagLabel.setBounds (0, 0, getWidth(), 28);
+    diagLabel.setBounds (0, 0, getWidth(), 40);
     diagLabel.toFront (false);
 }
