@@ -33,7 +33,8 @@ target_sources(FourBX
         Source/PluginEditor.cpp
         Source/DSP/ThreeBandExpander.cpp
         Source/UI/PanelWidgets.cpp
-        Source/UI/Panels.cpp)
+        Source/UI/Panels.cpp
+        Source/Diagnostics/WindowDiagnostics.cpp)
 
 target_compile_definitions(FourBX
     PUBLIC

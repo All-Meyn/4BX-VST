@@ -136,6 +136,7 @@ void FrontPanel::drawColumnScale (juce::Graphics& g, const LedColumn& col,
 
 void FrontPanel::paint (juce::Graphics& g)
 {
+    ++diagPaints;
     const auto bounds = getLocalBounds().toFloat();
 
     // Faceplate.
@@ -260,6 +261,31 @@ RearPanel::RearPanel (FourBXAudioProcessor& p, const float& displayLevel)
 
     frontButton.onClick = [this] { if (onShowFront) onShowFront(); };
     addAndMakeVisible (frontButton);
+
+    gpuButton.setClickingTogglesState (true);
+    gpuButton.setToggleState (true, juce::dontSendNotification);
+    gpuButton.setTooltip ("GPU drawing (Direct2D). Turn off if the window goes blank in your host.");
+    gpuButton.onClick = [this]
+    {
+        repaint();
+        if (onGpuChanged) onGpuChanged (gpuButton.getToggleState());
+    };
+    addChildComponent (gpuButton); // hidden until the editor knows both renderers exist
+}
+
+void RearPanel::setGpuSwitchState (bool gpuOn)
+{
+    gpuButton.setToggleState (gpuOn, juce::dontSendNotification);
+    repaint();
+}
+
+void RearPanel::setGpuSwitchAvailable (bool available)
+{
+    if (gpuButton.isVisible() != available)
+    {
+        gpuButton.setVisible (available);
+        repaint();
+    }
 }
 
 RearPanel::~RearPanel()
@@ -316,6 +342,14 @@ void RearPanel::paint (juce::Graphics& g)
              colours::ledRed, softClipButton.getToggleState() ? 1.0f : 0.0f, display);
     drawLegend (g, "SOFT CLIP", { sb.getCentreX() - 40.0f, sb.getBottom() + 8.0f, 80.0f, 10.0f }, 8.5f);
 
+    if (gpuButton.isVisible())
+    {
+        const auto gb = gpuButton.getBounds().toFloat();
+        drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ gb.getCentreX(), gb.getY() - 10.0f }),
+                 colours::ledRed, gpuButton.getToggleState() ? 1.0f : 0.0f, display);
+        drawLegend (g, "GPU DRAW", { gb.getCentreX() - 34.0f, gb.getBottom() + 8.0f, 68.0f, 10.0f }, 8.5f);
+    }
+
     const auto fb = frontButton.getBounds().toFloat();
     drawLegend (g, "FRONT", { fb.getCentreX() - 30.0f, fb.getBottom() + 8.0f, 60.0f, 10.0f }, 8.0f);
     drawLegend (g, "PANEL", { fb.getCentreX() - 30.0f, fb.getBottom() + 18.0f, 60.0f, 10.0f }, 8.0f);
@@ -325,7 +359,8 @@ void RearPanel::resized()
 {
     releasePot.setBounds (330, 76, 80, 96);
     hfPot.setBounds (480, 76, 80, 96);
-    softClipButton.setBounds (640, 112, 30, 14);
+    softClipButton.setBounds (620, 112, 30, 14);
+    gpuButton.setBounds (700, 112, 30, 14);
     frontButton.setBounds (920, 126, 30, 14);
 }
 

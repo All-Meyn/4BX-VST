@@ -24,6 +24,7 @@ public:
     void setMeterValues (const std::array<float, 3>& expansionDb, float impactDb);
 
     std::function<void()> onShowRear;
+    int diagPaints = 0; // TEMPORARY diagnostics
     std::function<void (float)> onDisplayChanged;
 
 private:
@@ -68,13 +69,19 @@ public:
 
     std::function<void()> onShowFront;
 
+    // GPU (Direct2D) vs software drawing switch. Only shown where the platform
+    // offers both renderers (Windows).
+    std::function<void (bool)> onGpuChanged;
+    void setGpuSwitchState (bool gpuOn);
+    void setGpuSwitchAvailable (bool available);
+
 private:
     const float& display;
     PanelLookAndFeel lnf;
 
     juce::Slider releasePot { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider hfPot      { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
-    PanelButton softClipButton, frontButton;
+    PanelButton softClipButton, frontButton, gpuButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment, hfAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> softClipAttachment;
 
