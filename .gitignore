@@ -1,0 +1,17 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+out/
+
+# IDE / OS
+.vscode/
+.idea/
+*.user
+.DS_Store
+Thumbs.db
+
+# Plugin binaries
+*.vst3
+*.component
+*.clap
