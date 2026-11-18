@@ -152,7 +152,7 @@ int main()
         p.impactReleaseMs = 200.0f;
         ThreeBandExpander ex;
         const int onset = (int) (0.5 * sr);
-        auto quietThenLoud = [&] (int i) { return (float) (i < onset ? 0.01 : 0.3) * std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr); };
+        auto quietThenLoud = [&] (int i) { return (float) ((i < onset ? 0.01 : 0.3) * std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr)); };
         auto out = run (p, 0.5 + 0.02, quietThenLoud, 2, &ex); // stop 20 ms after the attack
         const float impactAtAttack = ex.getMeters().impactDb[1].load();
         check (impactAtAttack > 3.0f, "impact boosts MF band on a sudden attack (dB)", impactAtAttack);
@@ -197,7 +197,7 @@ int main()
             p.impactReleaseMs = releaseMs;
             ThreeBandExpander ex;
             const int onset = (int) (0.5 * sr);
-            run (p, 0.5 + 0.15, [&] (int i) { return (float) (i < onset ? 0.01 : 0.3) * std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr); }, 2, &ex);
+            run (p, 0.5 + 0.15, [&] (int i) { return (float) ((i < onset ? 0.01 : 0.3) * std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr)); }, 2, &ex);
             return ex.getMeters().impactDb[1].load();
         };
         const float fast = measure (25.0f), slow = measure (1500.0f);
