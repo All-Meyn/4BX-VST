@@ -59,7 +59,7 @@ void FourBXAudioProcessorEditor::showRear (bool showRearPanel)
 void FourBXAudioProcessorEditor::timerCallback()
 {
     const auto& m = processor.getMeters();
-    constexpr float decayDbPerTick = 1.0f; // ~30 dB/s fall-back
+    static constexpr float decayDbPerTick = 1.0f; // ~30 dB/s fall-back (static: usable in the lambda without capture on MSVC)
 
     const auto follow = [] (float shown, float target)
     {
