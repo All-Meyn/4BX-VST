@@ -23,7 +23,13 @@ The window is styled as a hardware faceplate and scales with a fixed aspect rati
 Volume, Expansion, Transition and Impact use ▼/▲ buttons (hold to repeat) with an
 LED column as the readout; you can also drag or scroll a column, or double-click it
 to type a value. **REAR PANEL** flips to the back, which holds Impact Release,
-HF Transition and Soft Clip. **DISPLAY** sets LED brightness (saved with the session).
+HF Transition, Soft Clip and (on Windows) **GPU DRAW**. **DISPLAY** sets LED
+brightness (saved with the session).
+
+**GPU DRAW** (Windows) chooses Direct2D or software drawing. It defaults to off in
+Audacity: Audacity 4 covers the plugin window with one of its own during Preview,
+which shows as a white panel with GPU drawing and as a faded panel without. Your
+choice with the switch is saved with the session.
 
 Bands: LF < 150 Hz, MF 150 Hz–6 kHz, HF > 6 kHz (Linkwitz-Riley 24 dB/oct; sums flat).
 Stereo channels share one detector per band. Meters: yellow = downward expansion

@@ -9,6 +9,27 @@ namespace
     constexpr const char* softwareEngineName = "Software Renderer";
     constexpr const char* gpuEngineName      = "Direct2D";
 
+    // Audacity 4 places one of its own windows over the plugin during Preview.
+    // With Direct2D (GPU) drawing that shows as a blank white panel; with the
+    // software renderer the panel shows through faded. So in Audacity, default
+    // to software drawing. JUCE's PluginHostType doesn't know Audacity, so check
+    // the host executable's name.
+    bool isAudacityHost()
+    {
+        return juce::File::getSpecialLocation (juce::File::hostApplicationPath)
+                   .getFileNameWithoutExtension().containsIgnoreCase ("audacity");
+    }
+
+    // An explicit choice made with the GPU DRAW switch is saved and wins;
+    // otherwise use the per-host default.
+    bool loadGpuRendering (juce::AudioProcessorValueTreeState& apvts)
+    {
+        if (apvts.state.hasProperty (gpuRenderingId))
+            return (bool) apvts.state.getProperty (gpuRenderingId);
+
+        return ! isAudacityHost();
+    }
+
     float loadDisplayLevel (juce::AudioProcessorValueTreeState& apvts)
     {
         return juce::jlimit (0.0f, 1.0f, (float) (double) apvts.state.getProperty (displayLevelId, 1.0));
@@ -19,7 +40,7 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       displayLevel (loadDisplayLevel (p.apvts)),
-      gpuRendering ((bool) p.apvts.state.getProperty (gpuRenderingId, true)),
+      gpuRendering (loadGpuRendering (p.apvts)),
       front (p, displayLevel),
       rear (p, displayLevel)
 {
