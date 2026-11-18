@@ -1,8 +1,21 @@
-# Tri-Expand
+# Tri-Expand & Hepta-Expand
 
-A 3-band dynamic-range expander with transient "impact" enhancement, modelled on
+Multi-band dynamic-range expanders with transient "impact" enhancement, modelled on
 the behaviour described in the owner's manual of a classic 1980s hi-fi expander.
 VST3 + Standalone, built with [JUCE](https://juce.com) 9 and CMake.
+
+| Plugin | Bands | Crossovers |
+|---|---|---|
+| **Tri-Expand** | 3: LF / MF / HF | 150 Hz, 6 kHz |
+| **Hepta-Expand** | 7: SUB / LOW / LMID / MID / HMID / PRES / AIR | 60, 150, 400 Hz, 1, 2.5, 6 kHz |
+
+Both share all code and controls; the band count is fixed per plugin at build time
+(`EXPANDER_NUM_BANDS`). They are separate plugins to hosts (different plugin codes).
+
+With 7 narrow bands, a steady tone also leaks into the neighbouring bands, which
+sit well below the pivot and get expanded down, so Hepta-Expand pulls steady tones
+down further than Tri-Expand (about 2.7 dB at 50 % expansion and the pivot level).
+Per band, both follow the same gain law.
 
 ## Controls
 
@@ -10,9 +23,9 @@ VST3 + Standalone, built with [JUCE](https://juce.com) 9 and CMake.
 |---|---|---|
 | Expansion | 0–50 % | Ratio 1:1 to 1:1.5 in every band. Gain = (ratio − 1) × (band RMS level − Transition). |
 | Transition | −40 to 0 dBFS | The unity-gain pivot: louder material is expanded up, quieter material down. |
-| HF Trim | ±10 dB | Offsets the pivot of the high band (above ~6 kHz) only. Raise it to tame hiss/cymbals. |
+| HF Trim | ±10 dB | Offsets the pivot of the top band (above 6 kHz) only. Raise it to tame hiss/cymbals. |
 | Impact | 0–100 % | Upward-only boost on sudden attacks; the % sets the maximum boost per band (50 % = +6 dB, 100 % = +12 dB). |
-| Impact Release | 25–1500 ms | How fast the impact boost decays (scaled ×1.5 on LF, ×0.6 on HF). |
+| Impact Release | 25–1500 ms | How fast the impact boost decays (scaled per band: slower on low bands, faster on high). |
 | Volume | −40 to +10 dB | Output level. |
 | Bypass | on/off | Removes expansion and impact; Volume still applies (as on the hardware). |
 | Soft Clip | on/off | Smooth limiting above −1 dBFS so peaks never exceed 0 dBFS. Off by default. |
@@ -31,8 +44,9 @@ Audacity: Audacity 4 covers the plugin window with one of its own during Preview
 which shows as a white panel with GPU drawing and as a faded panel without. Your
 choice with the switch is saved with the session.
 
-Bands: LF < 150 Hz, MF 150 Hz–6 kHz, HF > 6 kHz (Linkwitz-Riley 24 dB/oct; sums flat).
-Stereo channels share one detector per band. Meters: yellow = downward expansion
+Crossovers are Linkwitz-Riley 24 dB/oct, phase-aligned so the bands sum flat.
+Stereo channels share one detector per band. Hepta-Expand's faceplate is taller,
+with one gain-change row per band. Meters: yellow = downward expansion
 to −20 dB, red = upward expansion to +12 dB; IMP = impact boost (loudest band).
 
 All tunable constants live in `Source/DSP/ExpanderConstants.h`, each marked as
@@ -63,25 +77,29 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Output: `build/TriExpand_artefacts/Release/VST3/Tri-Expand.vst3` and
-`build/TriExpand_artefacts/Release/Standalone/Tri-Expand`.
+Output:
+- `build/TriExpand_artefacts/Release/VST3/Tri-Expand.vst3` and `.../Standalone/Tri-Expand`
+- `build/HeptaExpand_artefacts/Release/VST3/Hepta-Expand.vst3` and `.../Standalone/Hepta-Expand`
+
+Build just one with `--target TriExpand_VST3` or `--target HeptaExpand_VST3`.
 
 ## Tests
 
-An offline test program checks the DSP (flat crossover sum, expansion law,
-gain limits, HF trim, impact behaviour, bypass, soft clip, mono):
+Offline test programs check the DSP for each band count (flat crossover sum,
+per-band expansion law, gain limits, HF trim, impact behaviour, bypass, soft clip, mono):
 
 ```bash
-cmake --build build --target TriExpandTests
+cmake --build build --target TriExpandTests HeptaExpandTests
 ./build/TriExpandTests_artefacts/Release/TriExpandTests
+./build/HeptaExpandTests_artefacts/Release/HeptaExpandTests
 ```
 
 Turn it off with `-DTRIEXPAND_BUILD_TESTS=OFF`.
 
 ## Layout
 
-- `Source/DSP/ThreeBandExpander.*` — the DSP (no plugin dependencies)
-- `Source/DSP/ExpanderConstants.h` — crossover points, time constants, limits
+- `Source/DSP/MultiBandExpander.*` — the DSP (no plugin dependencies)
+- `Source/DSP/ExpanderConstants.h` — band count, crossover points, per-band time constants, limits
 - `Source/PluginProcessor.*` — parameters, state, host glue
 - `Source/PluginEditor.*` — window scaling, panel flip, meter updates
 - `Source/UI/` — faceplate widgets (LEDs, buttons, pots) and front/rear panels

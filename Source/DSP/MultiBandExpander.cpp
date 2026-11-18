@@ -1,4 +1,4 @@
-#include "ThreeBandExpander.h"
+#include "MultiBandExpander.h"
 
 #include <cmath>
 
@@ -16,13 +16,13 @@ namespace
     constexpr float impactEnvFloor = 1.0e-5f; // -100 dBFS
 }
 
-float ThreeBandExpander::onePoleCoeff (double seconds, double sr) noexcept
+float MultiBandExpander::onePoleCoeff (double seconds, double sr) noexcept
 {
     // Coefficient for y += c * (x - y): reaches ~63% of a step after `seconds`.
     return (float) (1.0 - std::exp (-1.0 / (seconds * sr)));
 }
 
-void ThreeBandExpander::prepare (double newSampleRate, int maxBlockSize, int newNumChannels)
+void MultiBandExpander::prepare (double newSampleRate, int maxBlockSize, int newNumChannels)
 {
     sampleRate = newSampleRate;
     numChannels = newNumChannels;
@@ -30,14 +30,20 @@ void ThreeBandExpander::prepare (double newSampleRate, int maxBlockSize, int new
     const juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) juce::jmax (1, maxBlockSize),
                                         (juce::uint32) juce::jmax (1, numChannels) };
 
-    lowMidSplit.setCutoffFrequency (crossoverLowMidHz);
-    midHighSplit.setCutoffFrequency (crossoverMidHighHz);
-    lowBandAllpass.setCutoffFrequency (crossoverMidHighHz);
-    lowBandAllpass.setType (juce::dsp::LinkwitzRileyFilterType::allpass);
+    for (int k = 0; k < numSplits; ++k)
+    {
+        splits[(size_t) k].setCutoffFrequency (crossoverHz[k]);
+        splits[(size_t) k].prepare (spec);
+    }
 
-    lowMidSplit.prepare (spec);
-    midHighSplit.prepare (spec);
-    lowBandAllpass.prepare (spec);
+    for (int b = 0; b < numSplits; ++b)
+        for (int k = b + 1; k < numSplits; ++k)
+        {
+            auto& ap = allpasses[(size_t) allpassIndex (b, k)];
+            ap.setCutoffFrequency (crossoverHz[k]);
+            ap.setType (juce::dsp::LinkwitzRileyFilterType::allpass);
+            ap.prepare (spec);
+        }
 
     for (int b = 0; b < numBands; ++b)
     {
@@ -58,11 +64,10 @@ void ThreeBandExpander::prepare (double newSampleRate, int maxBlockSize, int new
     reset();
 }
 
-void ThreeBandExpander::reset()
+void MultiBandExpander::reset()
 {
-    lowMidSplit.reset();
-    midHighSplit.reset();
-    lowBandAllpass.reset();
+    for (auto& f : splits)    f.reset();
+    for (auto& f : allpasses) f.reset();
 
     for (auto& s : bands)
     {
@@ -77,7 +82,7 @@ void ThreeBandExpander::reset()
     for (auto& m : meters.impactDb)    m.store (0.0f, std::memory_order_relaxed);
 }
 
-void ThreeBandExpander::setParameters (const Parameters& p) noexcept
+void MultiBandExpander::setParameters (const Parameters& p) noexcept
 {
     const auto setOrSnap = [] (juce::SmoothedValue<float>& sv, float target, bool snap)
     {
@@ -104,7 +109,7 @@ void ThreeBandExpander::setParameters (const Parameters& p) noexcept
     }
 }
 
-float ThreeBandExpander::computeBandGainDb (int band, float meanSquareIn, float absIn,
+float MultiBandExpander::computeBandGainDb (int band, float meanSquareIn, float absIn,
                                             float rMinus1, float pivotDb,
                                             float impactAmt, float wetAmt) noexcept
 {
@@ -138,7 +143,7 @@ float ThreeBandExpander::computeBandGainDb (int band, float meanSquareIn, float 
     return wetAmt * (expansionDb + s.impactGainDb);
 }
 
-float ThreeBandExpander::softClip (float x) noexcept
+float MultiBandExpander::softClip (float x) noexcept
 {
     const float a = std::abs (x);
     if (a <= clipperKnee)
@@ -148,7 +153,7 @@ float ThreeBandExpander::softClip (float x) noexcept
     return std::copysign (y, x);
 }
 
-void ThreeBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
+void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
 {
     const int numSamples = buffer.getNumSamples();
     const int chans = juce::jmin (numChannels, buffer.getNumChannels());
@@ -159,7 +164,7 @@ void ThreeBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
     const float invChans = 1.0f / (float) chans;
 
     constexpr int maxChans = 2; // layouts are restricted to mono/stereo by the processor
-    float low[maxChans], mid[maxChans], high[maxChans];
+    float bandSig[maxChans][numBands];
     float bandExpDb[numBands] {};
 
     for (int i = 0; i < numSamples; ++i)
@@ -171,24 +176,35 @@ void ThreeBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         const float wetAmt  = wet.getNextValue();
         const float outGain = dbToGain (outputDb.getNextValue());
 
-        // Split into three bands and gather linked (channel-averaged) detector inputs.
+        // Split into bands and gather linked (channel-averaged) detector inputs.
         float ms[numBands] {}, ab[numBands] {};
         for (int ch = 0; ch < chans && ch < maxChans; ++ch)
         {
-            float lowMid, highPart;
-            lowMidSplit.processSample (ch, data[ch][i], lowMid, highPart);
-            low[ch] = lowBandAllpass.processSample (ch, lowMid); // phase-align with the MF/HF split
-            midHighSplit.processSample (ch, highPart, mid[ch], high[ch]);
+            auto* band = bandSig[ch];
+            float rest = data[ch][i];
+            for (int k = 0; k < numSplits; ++k)
+            {
+                float lowPart, highPart;
+                splits[(size_t) k].processSample (ch, rest, lowPart, highPart);
+                // Phase-align this band with every split above it.
+                for (int a = k + 1; a < numSplits; ++a)
+                    lowPart = allpasses[(size_t) allpassIndex (k, a)].processSample (ch, lowPart);
+                band[k] = lowPart;
+                rest = highPart;
+            }
+            band[numBands - 1] = rest;
 
-            ms[0] += low[ch]  * low[ch];   ab[0] += std::abs (low[ch]);
-            ms[1] += mid[ch]  * mid[ch];   ab[1] += std::abs (mid[ch]);
-            ms[2] += high[ch] * high[ch];  ab[2] += std::abs (high[ch]);
+            for (int b = 0; b < numBands; ++b)
+            {
+                ms[b] += band[b] * band[b];
+                ab[b] += std::abs (band[b]);
+            }
         }
 
         float gain[numBands];
         for (int b = 0; b < numBands; ++b)
         {
-            const float pivotForBand = (b == 2) ? hfPivot : pivot;
+            const float pivotForBand = (b == numBands - 1) ? hfPivot : pivot;
             const float gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
                                                 rMinus1, pivotForBand, impAmt, wetAmt);
             gain[b] = dbToGain (gDb);
@@ -197,14 +213,16 @@ void ThreeBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
 
         for (int ch = 0; ch < chans && ch < maxChans; ++ch)
         {
-            float y = (low[ch] * gain[0] + mid[ch] * gain[1] + high[ch] * gain[2]) * outGain;
+            float sum = 0.0f;
+            for (int b = 0; b < numBands; ++b)
+                sum += bandSig[ch][b] * gain[b];
+            const float y = sum * outGain;
             data[ch][i] = softClipEnabled ? softClip (y) : y;
         }
     }
 
-    lowMidSplit.snapToZero();
-    midHighSplit.snapToZero();
-    lowBandAllpass.snapToZero();
+    for (auto& f : splits)    f.snapToZero();
+    for (auto& f : allpasses) f.snapToZero();
 
     const float wetNow = wet.getCurrentValue();
     for (int b = 0; b < numBands; ++b)
