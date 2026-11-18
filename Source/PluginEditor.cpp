@@ -77,6 +77,9 @@ TriExpandAudioProcessorEditor::TriExpandAudioProcessorEditor (TriExpandAudioProc
         c->setFixedAspectRatio ((double) panelWidth / (double) panelHeight);
     setSize (panelWidth * 5 / 4, panelHeight * 5 / 4);
 
+    if constexpr (TriExpandAudioProcessor::hasAutoTransition)
+        autoTransitionParam = p.apvts.getRawParameterValue (TriExpandAudioProcessor::ParamIDs::autoTransition);
+
     startTimerHz (30);
 }
 
@@ -148,6 +151,9 @@ void TriExpandAudioProcessorEditor::timerCallback()
     {
         front.setMeterValues (shownExpDb, shownImpactDb, shownBassDb);
         front.setOverLit (overHoldTicks > 0);
+        if constexpr (TriExpandAudioProcessor::hasAutoTransition)
+            if (autoTransitionParam != nullptr)
+                front.setAutoTransitionLit (autoTransitionParam->load (std::memory_order_relaxed) >= 0.5f);
     }
     else
     {

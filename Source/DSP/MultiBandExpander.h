@@ -30,6 +30,7 @@ public:
         float bassRestorePercent = 0.0f;  // 0..100: extra expansion in the bass bands (Hepta-Expand only)
         float bassTransitionDb   = 0.0f;  // offset added to the bass bands' pivot (Hepta-Expand only)
         bool  autoHeadroom       = false; // Hepta-Expand only: match output peaks to input peaks
+        bool  autoTransition     = false; // Hepta-Expand only: pivots follow each band's long-term level
     };
 
     // Gain readings for the UI. Written by the audio thread, read by the UI thread.
@@ -60,6 +61,9 @@ private:
     {
         float meanSquare = 0.0f;
         float levelDb = -100.0f;
+        float longTermDb = -100.0f;   // Auto Transition: band's long-term level
+        bool  longTermValid = false;  // set by the first non-silent level
+        int   longTermInitSamples = 0; // fast-adapt samples left after sound first appears
         float fastEnv = 0.0f;
         float slowEnvDb = -100.0f;
         float impactGainDb = 0.0f;
@@ -108,7 +112,11 @@ private:
 
     juce::SmoothedValue<float> ratioMinusOne, transitionDb, hfTransitionDb,
                                impactAmount, outputDb, wet,
-                               bassExtraRatio, bassTransitionDb; // used only when numBassBands > 0
+                               bassExtraRatio, bassTransitionDb, // used only when numBassBands > 0
+                               autoTransitionMix;                // used only when hasAutoTransition
+    float autoMixNow = 0.0f;       // current Auto Transition crossfade (0 = fixed pivots, 1 = auto)
+    float longTermCoeff = 0.0f, longTermInitCoeff = 0.0f;
+    int   longTermInitLength = 0;
     bool softClipEnabled = false;
 
     // Auto Headroom state (used only when constants::hasAutoHeadroom).

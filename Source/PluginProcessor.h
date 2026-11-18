@@ -49,10 +49,12 @@ public:
         static constexpr const char* bassRestore    = "bassRestore";
         static constexpr const char* bassTransition = "bassTransition";
         static constexpr const char* autoHeadroom   = "autoHeadroom";
+        static constexpr const char* autoTransition = "autoTransition";
     };
 
     static constexpr bool hasBassRestoration = triexpand::constants::numBassBands > 0;
     static constexpr bool hasAutoHeadroom    = triexpand::constants::hasAutoHeadroom;
+    static constexpr bool hasAutoTransition  = triexpand::constants::hasAutoTransition;
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -74,6 +76,7 @@ private:
     std::atomic<float>* bassRestoreParam    = nullptr; // null in Tri-Expand
     std::atomic<float>* bassTransitionParam = nullptr; // null in Tri-Expand
     std::atomic<float>* autoHeadroomParam   = nullptr; // null in Tri-Expand
+    std::atomic<float>* autoTransitionParam = nullptr; // null in Tri-Expand
 
     triexpand::MultiBandExpander expander;
 

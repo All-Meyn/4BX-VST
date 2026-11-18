@@ -38,6 +38,7 @@ namespace triexpand::constants
     // Tri-Expand is the reference for band-width compensation (no offsets).
     inline constexpr bool hasBandPivotOffsets = false;
     inline constexpr bool hasAutoHeadroom = false; // Tri-Expand 1.0 behaviour kept
+    inline constexpr bool hasAutoTransition = false;
     inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, 0.0f, 0.0f };
 #else
     // ---- Hepta-Expand: 7 bands ----
@@ -67,6 +68,7 @@ namespace triexpand::constants
     // behaves like the corresponding Tri-Expand band. [chosen]
     inline constexpr bool hasBandPivotOffsets = true;
     inline constexpr bool hasAutoHeadroom = true;
+    inline constexpr bool hasAutoTransition = true;
     inline constexpr float bandPivotOffsetDb[numBands] = { -2.63f, -3.42f, -5.75f, -6.05f, -6.05f, -6.25f, 0.0f };
 #endif
     // Bass Restoration: extra expansion ratio added to the bass bands at 100 %
@@ -113,10 +115,31 @@ namespace triexpand::constants
     // Auto Headroom (Hepta-Expand). Tracks the input's and the expander output's peak
     // envelopes and turns the output down by however much the expander raises the
     // peaks, so active and bypassed peaks stay about level. Down only. [chosen]
-    inline constexpr float headroomPeakReleaseSeconds = 1.5f;  // peak envelopes: instant attack, this release
-    inline constexpr float headroomTrimAttackSeconds  = 0.05f; // trim moves down this fast
-    inline constexpr float headroomTrimReleaseSeconds = 3.0f;  // ...and recovers this slowly
+    // Deliberately slow: it sets an overall output level rather than reacting to
+    // individual hits. A 50 ms / 3 s version pumped ~1.3 dB with the beat on hits of
+    // varying strength. The first hits after a quiet passage can briefly go over until
+    // it settles (Soft Clip catches those; the OVER LED shows them).
+    inline constexpr float headroomPeakReleaseSeconds = 3.0f;  // peak envelopes: instant attack, this release
+    inline constexpr float headroomTrimAttackSeconds  = 1.0f;  // trim moves down this fast
+    inline constexpr float headroomTrimReleaseSeconds = 8.0f;  // ...and recovers this slowly
     inline constexpr float headroomMaxTrimDb          = -12.0f;
+    // The trim holds still while the target is within this of it, so hit-to-hit
+    // variation in peak level doesn't make it wobble. [chosen]
+    inline constexpr float headroomDeadbandDb         = 0.5f;
+
+    // Auto Transition (Hepta-Expand). Each band's pivot follows that band's own
+    // long-term level, so the expander works around the music's average at any
+    // playback level; Transition becomes an offset from it (its centre value,
+    // autoTransitionCentreDb, = the average). HF / Bass Transition still add on top;
+    // band-width compensation isn't needed (each band uses its own average). [chosen]
+    inline constexpr float autoTransitionSeconds  = 8.0f;   // long-term average time constant (dB domain)
+    inline constexpr float autoTransitionGateDb   = -70.0f; // band levels below this don't update the average
+    inline constexpr float autoTransitionCentreDb = -20.0f; // Transition value meaning "at the average"
+    // For this long after sound first appears, the average uses autoTransitionInitTau so
+    // it locks onto the real level instead of crawling up from where the (still rising)
+    // level detector first crossed the gate.
+    inline constexpr float autoTransitionInitSeconds = 1.0f;
+    inline constexpr float autoTransitionInitTau     = 0.25f;
 
     // Parameter smoothing time, seconds. [chosen]
     inline constexpr double parameterSmoothingSeconds = 0.05;

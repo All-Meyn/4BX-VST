@@ -18,6 +18,7 @@ inline constexpr float impactRowY      = lastMeterRowY + 50.0f;
 // Hepta-Expand adds a Bass Restoration meter row under the Impact row.
 inline constexpr bool  hasBassRow      = constants::numBassBands > 0;
 inline constexpr bool  hasHeadroomUi   = constants::hasAutoHeadroom; // OVER LED + Auto Headroom switch
+inline constexpr bool  hasAutoTransitionUi = constants::hasAutoTransition; // AUTO LED + Auto Transition switch
 inline constexpr float bassRowY        = impactRowY + 36.0f;
 inline constexpr float lastLegendY     = (hasBassRow ? bassRowY : impactRowY) + 14.0f;
 inline constexpr int   panelHeight     = (int) (lastLegendY + 54.0f);
@@ -36,6 +37,7 @@ public:
     // Called from the editor's timer (message thread).
     void setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb, float bassDb = 0.0f);
     void setOverLit (bool lit);
+    void setAutoTransitionLit (bool lit);
 
     std::function<void()> onShowRear;
     std::function<void (float)> onDisplayChanged;
@@ -70,6 +72,7 @@ private:
     float meterImpactDb = 0.0f;
     float meterBassDb = 0.0f;
     bool overLit = false;
+    bool autoTransitionLit = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FrontPanel)
 };
@@ -101,10 +104,10 @@ private:
     juce::Slider releasePot { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider hfPot      { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider bassPot    { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow }; // only when hasBassRow
-    PanelButton softClipButton, frontButton, gpuButton, autoHeadroomButton;
+    PanelButton softClipButton, frontButton, gpuButton, autoHeadroomButton, autoTransitionButton;
     float headroomTrimDb = 0.0f;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment, hfAttachment, bassAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> softClipAttachment, autoHeadroomAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> softClipAttachment, autoHeadroomAttachment, autoTransitionAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RearPanel)
 };

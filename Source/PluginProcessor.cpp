@@ -31,6 +31,12 @@ TriExpandAudioProcessor::TriExpandAudioProcessor()
         autoHeadroomParam = apvts.getRawParameterValue (ParamIDs::autoHeadroom);
         jassert (autoHeadroomParam);
     }
+
+    if constexpr (hasAutoTransition)
+    {
+        autoTransitionParam = apvts.getRawParameterValue (ParamIDs::autoTransition);
+        jassert (autoTransitionParam);
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::createParameterLayout()
@@ -87,6 +93,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::cre
         layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::autoHeadroom, 1 }, "Auto Headroom", offOn, 1));
     }
 
+    if constexpr (hasAutoTransition)
+    {
+        // Off by default: fixed Transition levels unless the user switches it on.
+        layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::autoTransition, 1 }, "Auto Transition", offOn, 0));
+    }
+
     return layout;
 }
 
@@ -108,6 +120,8 @@ void TriExpandAudioProcessor::pushParametersToDsp() noexcept
     }
     if constexpr (hasAutoHeadroom)
         p.autoHeadroom = autoHeadroomParam->load() >= 0.5f;
+    if constexpr (hasAutoTransition)
+        p.autoTransition = autoTransitionParam->load() >= 0.5f;
     expander.setParameters (p);
 }
 

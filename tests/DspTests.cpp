@@ -359,8 +359,13 @@ int main()
         auto p = neutral();
         p.expansionPercent = 50.0f;
         p.autoHeadroom = true;
-        const double steady = steadyGainDb (p, midHz, -10.0);
-        check (std::abs (steady) < 0.5, "auto headroom: steady +gain cancelled (output ~ input level)", steady);
+        // Auto Headroom settles over seconds (1 s down), so measure after 8 s.
+        double steady;
+        {
+            auto out = run (p, 9.0, sine (midHz, -10.0));
+            steady = rmsDb (out, (int) (8.0 * sr), (int) (1.0 * sr)) + 10.0;
+        }
+        check (std::abs (steady) < 0.7, "auto headroom: steady +gain cancelled to within its 0.5 dB deadband", steady);
 
         // Down only: downward expansion is left alone (no make-up gain).
         const double quiet = steadyGainDb (p, midHz, -30.0);
@@ -404,6 +409,49 @@ int main()
         pb.outputDb = -3.0f;
         const double byp = steadyGainDb (pb, midHz, -5.0);
         check (std::abs (byp + 3.0) < 0.1, "auto headroom + bypass: only Volume applies (-3 dB)", byp);
+    }
+
+    // 7f. Auto Transition (Hepta-Expand only): pivots follow each band's long-term level.
+    if constexpr (hasAutoTransition)
+    {
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.autoTransition = true;
+        const auto bandGain = [&] (const MultiBandExpander::Parameters& prm, const std::function<float (int)>& gen, double seconds)
+        {
+            MultiBandExpander ex;
+            run (prm, seconds, gen, 2, &ex);
+            return (double) ex.getMeters().expansionDb[(size_t) midBand].load();
+        };
+
+        // Steady tones at very different levels both sit at their own average -> ~0 dB.
+        const double loud = bandGain (p, sine (midHz, -10.0), 3.0);
+        const double quiet = bandGain (p, sine (midHz, -35.0), 3.0);
+        check (std::abs (loud) < 0.5 && std::abs (quiet) < 0.5, "auto transition: steady tone ~0 dB at -10 and -35 dBFS", loud - quiet);
+
+        // Transition 10 dB below centre -> pivot 10 dB under the average -> +5 dB at 50 %.
+        auto po = p;
+        po.transitionDb = autoTransitionCentreDb - 10.0f;
+        const double offs = bandGain (po, sine (midHz, -35.0), 3.0);
+        check (std::abs (offs - 5.0) < 0.5, "auto transition: Transition -10 dB offset -> +5 dB", offs);
+
+        // Dynamics still expanded: 4 s at -30 dBFS, then a 10 dB jump; 0.6 s later ~+4..5 dB.
+        const auto step = [] (int i)
+        {
+            const double lvl = i < (int) (4.0 * sr) ? -30.0 : -20.0;
+            return (float) (std::sqrt (2.0) * std::pow (10.0, lvl / 20.0) * std::sin (2.0 * juce::MathConstants<double>::pi * midHz * i / sr));
+        };
+        const double jump = bandGain (p, step, 4.6);
+        check (jump > 3.5 && jump < 5.5, "auto transition: +10 dB jump expanded up (~+5 dB at 50%)", jump);
+
+        // Silence doesn't drag the average down: tone, 3 s silence, same tone -> ~0 dB again.
+        const auto gap = [] (int i)
+        {
+            const bool on = i < (int) (3.0 * sr) || i >= (int) (6.0 * sr);
+            return on ? (float) (std::sqrt (2.0) * std::pow (10.0, -25.0 / 20.0) * std::sin (2.0 * juce::MathConstants<double>::pi * midHz * i / sr)) : 0.0f;
+        };
+        const double afterGap = bandGain (p, gap, 7.5);
+        check (std::abs (afterGap) < 1.0, "auto transition: average survives silence (~0 dB after a gap)", afterGap);
     }
 
     // 8. Expander bypass removes expansion and impact but keeps output volume.

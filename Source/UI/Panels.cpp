@@ -123,6 +123,15 @@ void FrontPanel::setOverLit (bool lit)
     }
 }
 
+void FrontPanel::setAutoTransitionLit (bool lit)
+{
+    if (lit != autoTransitionLit)
+    {
+        autoTransitionLit = lit;
+        repaint (juce::Rectangle<int> (570, 8 + (int) oy, 50, 18));
+    }
+}
+
 void FrontPanel::drawGainRow (juce::Graphics& g, float y, float expDb) const
 {
     for (int i = 0; i < 6; ++i)
@@ -241,6 +250,13 @@ void FrontPanel::paint (juce::Graphics& g)
     }
     drawArrows (g, transition);
     drawArrows (g, impact);
+    if constexpr (hasAutoTransitionUi)
+    {
+        // AUTO: Transition is an offset from each band's long-term level.
+        drawLed (g, juce::Rectangle<float> (10.0f, 5.0f).withCentre ({ 584.0f, 18.0f + oy }), colours::ledRed,
+                 autoTransitionLit ? 1.0f : 0.0f, display);
+        drawLegend (g, "AUTO", { 593.0f, 13.0f + oy, 30.0f, 10.0f }, 7.5f, juce::Justification::centredLeft);
+    }
     if constexpr (hasBassRow)
     {
         drawArrows (g, bass);
@@ -330,6 +346,15 @@ RearPanel::RearPanel (TriExpandAudioProcessor& p, const float& displayLevel)
         autoHeadroomButton.onClick = [this] { repaint(); };
         addAndMakeVisible (autoHeadroomButton);
         autoHeadroomAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, IDs::autoHeadroom, autoHeadroomButton);
+    }
+
+    if constexpr (hasAutoTransitionUi)
+    {
+        autoTransitionButton.setClickingTogglesState (true);
+        autoTransitionButton.setTooltip ("Auto Transition: each band's pivot follows its own long-term level");
+        autoTransitionButton.onClick = [this] { repaint(); };
+        addAndMakeVisible (autoTransitionButton);
+        autoTransitionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, IDs::autoTransition, autoTransitionButton);
     }
 
     gpuButton.setClickingTogglesState (true);
@@ -444,6 +469,14 @@ void RearPanel::paint (juce::Graphics& g)
                     juce::Justification::centred, colours::legend.withAlpha (0.6f));
     }
 
+    if constexpr (hasAutoTransitionUi)
+    {
+        const auto tb = autoTransitionButton.getBounds().toFloat();
+        drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ tb.getCentreX(), tb.getY() - 10.0f }),
+                 colours::ledRed, autoTransitionButton.getToggleState() ? 1.0f : 0.0f, display);
+        drawLegend (g, "AUTO TRANSITION", { tb.getCentreX() - 55.0f, tb.getBottom() + 8.0f, 110.0f, 10.0f }, 8.5f);
+    }
+
     if (gpuButton.isVisible())
     {
         const auto gb = gpuButton.getBounds().toFloat();
@@ -466,6 +499,7 @@ void RearPanel::resized()
     softClipButton.setBounds (620, 112 + dy, 30, 14);
     gpuButton.setBounds (700, 112 + dy, 30, 14);
     autoHeadroomButton.setBounds (620, 162 + dy, 30, 14);
+    autoTransitionButton.setBounds (720, 162 + dy, 30, 14);
     frontButton.setBounds (920, 126 + dy, 30, 14);
 }
 

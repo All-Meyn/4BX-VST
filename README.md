@@ -33,7 +33,8 @@ down. Offsets live in `ExpanderConstants.h` (`bandPivotOffsetDb`).
 | Soft Clip | on/off | Smooth limiting above −1 dBFS so peaks never exceed 0 dBFS. Off by default. |
 | Bass Restoration *(Hepta-Expand)* | 0–100 % | Extra expansion in the bass bands (SUB + LOW, below 150 Hz), on top of Expansion: 100 % adds +0.5 to the ratio (50 % Expansion + 100 % Bass = 1:2 in the bass). Bass above its pivot gets louder, bass below it quieter. 0 % = off. |
 | Bass Transition *(Hepta-Expand, rear)* | ±10 dB | Offsets the pivot of the bass bands only. Lower it to push more of the bass upward. |
-| Auto Headroom *(Hepta-Expand, rear)* | on/off, **on** | Turns the output down by however much the expander raises the peaks (input vs output peak envelopes; down only, up to −12 dB, ~50 ms down / ~3 s recovery), so loud masters aren't pushed into clipping after the plugin. Rear panel shows the current trim. |
+| Auto Headroom *(Hepta-Expand, rear)* | on/off, **on** | Turns the output down by however much the expander raises the peaks (input vs output peak envelopes; down only, up to −12 dB). Deliberately slow (~1 s down, ~8 s recovery, 0.5 dB deadband) so it sets an overall level instead of pumping with the beat; the first hits after a quiet passage can briefly go over (Soft Clip catches them). Rear panel shows the current trim. |
+| Auto Transition *(Hepta-Expand, rear; AUTO LED on front)* | on/off, off | Each band's pivot follows that band's own long-term level (~8 s average, ignoring silence), so the expander works around the music's average at any playback level. Transition then becomes an offset: its middle (−20) = the average, −30 = 10 dB below it. HF / Bass Transition still apply. |
 | OVER LED *(Hepta-Expand)* | — | Lights for ~1 s when the plugin's output exceeds 0 dBFS: lower Volume or keep Auto Headroom on. |
 
 ### Interface
