@@ -138,11 +138,12 @@ void FourBXAudioProcessorEditor::updateDiagnostics()
     diagLastMs = now; diagPaintsAtLast = front.diagPaints; diagTicksAtLast = diagTicks; diagBlocksAtLast = blocks;
 
     juce::String engine = "(no peer)";
-    std::string chain = "(no peer)";
+    std::string chain = "(no peer)", inFront = "(no peer)";
     if (auto* peer = getPeer())
     {
         engine = peer->getAvailableRenderingEngines()[peer->getCurrentRenderingEngine()];
         chain = fourbx::diag::describeWindowChain (peer->getNativeHandle());
+        inFront = fourbx::diag::describeWindowsInFront (peer->getNativeHandle());
     }
 
     juce::String line1;
@@ -159,10 +160,12 @@ void FourBXAudioProcessorEditor::updateDiagnostics()
         juce::FileOutputStream out (logFile); // appends
         if (out.openedOk())
             out << juce::Time::getCurrentTime().formatted ("%H:%M:%S") << "." << juce::String (now % 1000).paddedLeft ('0', 3)
-                << "  " << line1 << "\n    " << juce::String (chain) << "\n";
+                << "  " << line1 << "\n    " << juce::String (chain)
+                << "\n    in front: " << juce::String (inFront) << "\n";
     }
 
-    diagLabel.setText (line1 + "\n" + juce::String (chain) + "\nlog: " + logFile.getFullPathName(), juce::dontSendNotification);
+    diagLabel.setText (line1 + "\n" + juce::String (chain) + "\nin front: " + juce::String (inFront)
+                       + "   log: " + logFile.getFullPathName(), juce::dontSendNotification);
 }
 
 void FourBXAudioProcessorEditor::timerCallback()
