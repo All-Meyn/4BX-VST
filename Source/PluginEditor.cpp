@@ -3,6 +3,11 @@
 namespace
 {
     const juce::Identifier displayLevelId { "displayLevel" };
+    const juce::Identifier gpuRenderingId { "gpuRendering" };
+
+    // Names JUCE uses for the Windows rendering engines (see HWNDComponentPeer).
+    constexpr const char* softwareEngineName = "Software Renderer";
+    constexpr const char* gpuEngineName      = "Direct2D";
 
     float loadDisplayLevel (juce::AudioProcessorValueTreeState& apvts)
     {
@@ -14,6 +19,7 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       displayLevel (loadDisplayLevel (p.apvts)),
+      gpuRendering ((bool) p.apvts.state.getProperty (gpuRenderingId, true)),
       front (p, displayLevel),
       rear (p, displayLevel)
 {
@@ -36,6 +42,14 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
         rear.repaint();
     };
 
+    rear.setGpuSwitchState (gpuRendering);
+    rear.onGpuChanged = [this] (bool gpuOn)
+    {
+        gpuRendering = gpuOn;
+        processor.apvts.state.setProperty (gpuRenderingId, gpuOn, nullptr);
+        updateRenderingEngine();
+    };
+
     setResizable (true, true);
     setResizeLimits (panelWidth, panelHeight, panelWidth * 2, panelHeight * 2); // below 1x the legends get unreadable
     if (auto* c = getConstrainer())
@@ -56,8 +70,33 @@ void FourBXAudioProcessorEditor::showRear (bool showRearPanel)
     rear.setVisible (showRearPanel);
 }
 
+void FourBXAudioProcessorEditor::updateRenderingEngine()
+{
+    // The host creates the native window after the editor is constructed and may
+    // recreate it, so this is called from the timer as well as from the switch.
+    auto* peer = getPeer();
+    if (peer == nullptr)
+        return;
+
+    const auto engines = peer->getAvailableRenderingEngines();
+    const int softwareIndex = engines.indexOf (softwareEngineName);
+    const int gpuIndex      = engines.indexOf (gpuEngineName);
+    const bool switchable   = softwareIndex >= 0 && gpuIndex >= 0;
+
+    rear.setGpuSwitchAvailable (switchable);
+
+    if (! switchable)
+        return;
+
+    const int wanted = gpuRendering ? gpuIndex : softwareIndex;
+    if (peer->getCurrentRenderingEngine() != wanted)
+        peer->setCurrentRenderingEngine (wanted);
+}
+
 void FourBXAudioProcessorEditor::timerCallback()
 {
+    updateRenderingEngine();
+
     const auto& m = processor.getMeters();
     static constexpr float decayDbPerTick = 1.0f; // ~30 dB/s fall-back (static: usable in the lambda without capture on MSVC)
 
