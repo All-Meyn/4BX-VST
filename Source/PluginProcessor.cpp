@@ -7,26 +7,72 @@ FourBXAudioProcessor::FourBXAudioProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "Parameters", createParameterLayout())
 {
-    gainDbParam = apvts.getRawParameterValue (gainParamId);
-    jassert (gainDbParam != nullptr);
+    expansionParam     = apvts.getRawParameterValue (ParamIDs::expansion);
+    transitionParam    = apvts.getRawParameterValue (ParamIDs::transition);
+    hfTransitionParam  = apvts.getRawParameterValue (ParamIDs::hfTransition);
+    impactParam        = apvts.getRawParameterValue (ParamIDs::impact);
+    impactReleaseParam = apvts.getRawParameterValue (ParamIDs::impactRelease);
+    volumeParam        = apvts.getRawParameterValue (ParamIDs::volume);
+    bypassParam        = apvts.getRawParameterValue (ParamIDs::bypass);
+    softClipParam      = apvts.getRawParameterValue (ParamIDs::softClip);
+
+    jassert (expansionParam && transitionParam && hfTransitionParam && impactParam
+             && impactReleaseParam && volumeParam && bypassParam && softClipParam);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout FourBXAudioProcessor::createParameterLayout()
 {
-    juce::AudioProcessorValueTreeState::ParameterLayout layout;
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { gainParamId, 1 },
-        "Gain",
-        juce::NormalisableRange<float> (-24.0f, 24.0f, 0.01f),
-        0.0f,
-        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    using namespace juce;
+    AudioProcessorValueTreeState::ParameterLayout layout;
+
+    const auto dB  = AudioParameterFloatAttributes().withLabel ("dB");
+    const auto pct = AudioParameterFloatAttributes().withLabel ("%");
+    const auto ms  = AudioParameterFloatAttributes().withLabel ("ms");
+
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::expansion, 1 }, "Expansion",
+        NormalisableRange<float> (0.0f, fourbx::constants::maxExpansionPercent, 0.1f), 25.0f, pct));
+
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::transition, 1 }, "Transition Level",
+        NormalisableRange<float> (-40.0f, 0.0f, 0.1f), -20.0f, dB));
+
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::hfTransition, 1 }, "HF Transition Trim",
+        NormalisableRange<float> (-10.0f, 10.0f, 0.1f), 0.0f, dB));
+
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::impact, 1 }, "Impact Restoration",
+        NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f, pct));
+
+    NormalisableRange<float> releaseRange (25.0f, 1500.0f, 1.0f);
+    releaseRange.setSkewForCentre (200.0f);
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::impactRelease, 1 }, "Impact Release",
+        releaseRange, 200.0f, ms));
+
+    layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::volume, 1 }, "Output Volume",
+        NormalisableRange<float> (-40.0f, 10.0f, 0.1f), 0.0f, dB));
+
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::bypass, 1 }, "Expander Bypass", false));
+    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::softClip, 1 }, "Soft Clip", false));
+
     return layout;
 }
 
-void FourBXAudioProcessor::prepareToPlay (double sampleRate, int)
+void FourBXAudioProcessor::pushParametersToDsp() noexcept
 {
-    gainSmoothed.reset (sampleRate, 0.02); // 20 ms ramp to avoid zipper noise
-    gainSmoothed.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (gainDbParam->load()));
+    fourbx::ThreeBandExpander::Parameters p;
+    p.expansionPercent = expansionParam->load();
+    p.transitionDb     = transitionParam->load();
+    p.hfTransitionDb   = hfTransitionParam->load();
+    p.impactPercent    = impactParam->load();
+    p.impactReleaseMs  = impactReleaseParam->load();
+    p.outputDb         = volumeParam->load();
+    p.bypass           = bypassParam->load() >= 0.5f;
+    p.softClip         = softClipParam->load() >= 0.5f;
+    expander.setParameters (p);
+}
+
+void FourBXAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    expander.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    pushParametersToDsp(); // first call after prepare snaps to current values
 }
 
 void FourBXAudioProcessor::releaseResources() {}
@@ -43,28 +89,11 @@ void FourBXAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 {
     juce::ScopedNoDenormals noDenormals;
 
-    const auto numIn  = getTotalNumInputChannels();
-    const auto numOut = getTotalNumOutputChannels();
-    const auto numSamples = buffer.getNumSamples();
+    for (auto ch = getTotalNumInputChannels(); ch < getTotalNumOutputChannels(); ++ch)
+        buffer.clear (ch, 0, buffer.getNumSamples());
 
-    for (auto ch = numIn; ch < numOut; ++ch)
-        buffer.clear (ch, 0, numSamples);
-
-    gainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (gainDbParam->load()));
-
-    if (! gainSmoothed.isSmoothing())
-    {
-        buffer.applyGain (gainSmoothed.getTargetValue());
-        return;
-    }
-
-    auto* const* channels = buffer.getArrayOfWritePointers();
-    for (int i = 0; i < numSamples; ++i)
-    {
-        const auto g = gainSmoothed.getNextValue();
-        for (int ch = 0; ch < numIn; ++ch)
-            channels[ch][i] *= g;
-    }
+    pushParametersToDsp();
+    expander.process (buffer);
 }
 
 juce::AudioProcessorEditor* FourBXAudioProcessor::createEditor()
