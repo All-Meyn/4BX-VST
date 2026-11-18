@@ -24,8 +24,9 @@ private:
     // as a property of the plugin state (not a host-automatable parameter).
     float displayLevel = 1.0f;
 
-    // true = Direct2D (GPU) drawing, false = JUCE software renderer. Windows only;
-    // saved with the session as a state property, like displayLevel.
+    // true = Direct2D (GPU) drawing, false = JUCE software renderer. Windows only.
+    // Defaults to software in Audacity (see PluginEditor.cpp); a choice made with
+    // the switch is saved with the session as a state property, like displayLevel.
     bool gpuRendering = true;
 
     juce::Component content; // fixed 1000 x 210 space, scaled to the window

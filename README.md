@@ -23,7 +23,13 @@ The window is styled as a hardware faceplate and scales with a fixed aspect rati
 Volume, Expansion, Transition and Impact use ▼/▲ buttons (hold to repeat) with an
 LED column as the readout; you can also drag or scroll a column, or double-click it
 to type a value. **REAR PANEL** flips to the back, which holds Impact Release,
-HF Transition and Soft Clip. **DISPLAY** sets LED brightness (saved with the session).
+HF Transition, Soft Clip and (on Windows) **GPU DRAW**. **DISPLAY** sets LED
+brightness (saved with the session).
+
+**GPU DRAW** (Windows) chooses Direct2D or software drawing. It defaults to off in
+Audacity: Audacity 4 covers the plugin window with one of its own during Preview,
+which shows as a white panel with GPU drawing and as a faded panel without. Your
+choice with the switch is saved with the session.
 
 Bands: LF < 150 Hz, MF 150 Hz–6 kHz, HF > 6 kHz (Linkwitz-Riley 24 dB/oct; sums flat).
 Stereo channels share one detector per band. Meters: yellow = downward expansion
@@ -48,6 +54,24 @@ a C++17 compiler, Ninja (optional).
 On Linux, JUCE also needs: `libasound2-dev libjack-jackd2-dev libfreetype-dev
 libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev
 libxinerama-dev libxrandr-dev libxrender-dev libxi-dev libgl1-mesa-dev libgtk-3-dev`.
+
+### Optional: VST2 (legacy)
+
+Steinberg's VST2 SDK is not public and is not included. If you have a copy (and the
+right to use it — Steinberg stopped issuing VST2 licences in 2018), point
+`FOURBX_VST2_SDK_PATH` at the folder containing `pluginterfaces/vst2.x/aeffect.h`
+(the `vstsdk2.4` folder, or the `VST2_SDK` folder from an older VST3 SDK zip):
+
+```bash
+cmake -S . -B build -DFOURBX_VST2_SDK_PATH=C:/SDKs/vstsdk2.4
+cmake --build build --config Release
+```
+
+This adds a `FourBX_VST` target; on Windows x64 it produces
+`build/FourBX_artefacts/Release/VST/4BX.dll` next to the VST3. Without the option,
+only VST3 + Standalone are built. The VST3 does not replace the VST2 in hosts
+(`JUCE_VST3_CAN_REPLACE_VST2=0`); changing that would change the VST3's ID and break
+existing sessions.
 
 After changing the JUCE version, delete the `build` folder (or run a fresh
 configure) so CMake fetches the new release.
