@@ -34,6 +34,10 @@ namespace triexpand::constants
 
     // No Bass Restoration in Tri-Expand.
     inline constexpr int numBassBands = 0;
+
+    // Tri-Expand is the reference for band-width compensation (no offsets).
+    inline constexpr bool hasBandPivotOffsets = false;
+    inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, 0.0f, 0.0f };
 #else
     // ---- Hepta-Expand: 7 bands ----
     // Crossovers. [chosen] Keeps Tri-Expand's 150 Hz and 6 kHz points, ~1.3 octaves apart.
@@ -52,6 +56,16 @@ namespace triexpand::constants
 
     // Bass Restoration acts on the bands below 150 Hz: SUB and LOW. [chosen]
     inline constexpr int numBassBands = 2;
+
+    // Band-width compensation. A narrow band carries less of the programme's energy
+    // than a wide one, so against the same Transition level it reads as "quiet" and is
+    // expanded down: without this, Hepta-Expand pulled 60 Hz-6 kHz ~3 dB further down
+    // than Tri-Expand on the same material, dulling the mids and presence. Each band's
+    // pivot is lowered by its share of the Tri-Expand band that contains it, for a pink
+    // spectrum over 20 Hz-20 kHz: 10*log10(ln(hi/lo) / ln(HI/LO)). Each band then
+    // behaves like the corresponding Tri-Expand band. [chosen]
+    inline constexpr bool hasBandPivotOffsets = true;
+    inline constexpr float bandPivotOffsetDb[numBands] = { -2.63f, -3.42f, -5.75f, -6.05f, -6.05f, -6.25f, 0.0f };
 #endif
     // Bass Restoration: extra expansion ratio added to the bass bands at 100 %
     // (on top of the global Expansion; 50 % Expansion + 100 % Bass = 1:2 in the bass). [chosen]

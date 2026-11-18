@@ -12,10 +12,12 @@ VST3 + Standalone, built with [JUCE](https://juce.com) 9 and CMake.
 Both share all code and controls; the band count is fixed per plugin at build time
 (`EXPANDER_NUM_BANDS`). They are separate plugins to hosts (different plugin codes).
 
-With 7 narrow bands, a steady tone also leaks into the neighbouring bands, which
-sit well below the pivot and get expanded down, so Hepta-Expand pulls steady tones
-down further than Tri-Expand (about 2.7 dB at 50 % expansion and the pivot level).
-Per band, both follow the same gain law.
+Narrow bands carry less of the programme's energy than wide ones, so Hepta-Expand
+lowers each band's pivot by that band's share of the Tri-Expand band containing it
+(pink-spectrum reference; SUB −2.6, LOW −3.4, LMID −5.8, MID/HMID −6.1, PRES −6.3,
+AIR 0 dB). Each band then behaves like the corresponding Tri-Expand band, keeping
+the same tonal balance; without it the mids and presence were pulled ~3 dB further
+down. Offsets live in `ExpanderConstants.h` (`bandPivotOffsetDb`).
 
 ## Controls
 

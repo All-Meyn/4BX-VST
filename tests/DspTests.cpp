@@ -121,7 +121,8 @@ std::pair<double, double> bandLawDb (MultiBandExpander::Parameters p, double hz,
     MultiBandExpander ex;
     run (p, 2.0, sine (hz, levelDb), 2, &ex);
     const double measured = ex.getMeters().expansionDb[(size_t) band].load();
-    const double pivot = p.transitionDb + (band == numBands - 1 ? p.hfTransitionDb : 0.0f);
+    const double pivot = p.transitionDb + (band == numBands - 1 ? p.hfTransitionDb : 0.0f)
+                         + (band < numBassBands ? p.bassTransitionDb : 0.0f) + bandPivotOffsetDb[band];
     const double expected = juce::jlimit ((double) maxDownwardExpansionDb, (double) maxUpwardExpansionDb,
                                           p.expansionPercent / 100.0 * (levelDb + bandResponseDb (hz, band) - pivot));
     return { measured, expected };
@@ -312,14 +313,15 @@ int main()
         run (p, 2.0, sine (40.0, -10.0), 2, &ex);
         const double measured = ex.getMeters().expansionDb[(size_t) sub].load();
         const double bandLevel = -10.0 + bandResponseDb (40.0, sub);
-        const double expected = 1.0 * (bandLevel - p.transitionDb);
+        const double bassPivot = p.transitionDb + bandPivotOffsetDb[sub];
+        const double expected = 1.0 * (bandLevel - bassPivot);
         char name[96];
         std::snprintf (name, sizeof name, "bass 100%%: 40 Hz band at 1:2, expect %+.2f dB", expected);
         check (std::abs (measured - expected) < 0.3, name, measured);
 
         // Meter shows the extra gain relative to the main expansion: 0.5 * (level - pivot).
         const double bassMeter = ex.getMeters().bassRestoreDb.load();
-        check (std::abs (bassMeter - 0.5 * (bandLevel - p.transitionDb)) < 0.3, "bass meter = extra gain from Bass Restoration", bassMeter);
+        check (std::abs (bassMeter - 0.5 * (bandLevel - bassPivot)) < 0.3, "bass meter = extra gain from Bass Restoration", bassMeter);
 
         // Bands above the bass are untouched.
         const auto [mid, midExpected] = bandLawDb (p, midHz, -10.0, midBand);
@@ -337,7 +339,7 @@ int main()
         p.bassTransitionDb = 0.0f;
         MultiBandExpander ex3;
         run (p, 2.0, sine (40.0, -10.0), 2, &ex3);
-        check (std::abs (ex3.getMeters().expansionDb[(size_t) sub].load() - 0.5 * (bandLevel - p.transitionDb)) < 0.3
+        check (std::abs (ex3.getMeters().expansionDb[(size_t) sub].load() - 0.5 * (bandLevel - bassPivot)) < 0.3
                    && std::abs (ex3.getMeters().bassRestoreDb.load()) < 1.0e-6f,
                "bass 0%: normal law in the bass, meter 0", ex3.getMeters().bassRestoreDb.load());
     }
@@ -373,7 +375,7 @@ int main()
         MultiBandExpander monoEx;
         auto out = run (p, 2.0, sine (midHz, -10.0), 1, &monoEx);
         const double monoBand = monoEx.getMeters().expansionDb[(size_t) midBand].load();
-        const double monoExpected = 0.5 * (-10.0 + bandResponseDb (midHz, midBand) + 20.0);
+        const double monoExpected = 0.5 * (-10.0 + bandResponseDb (midHz, midBand) + 20.0 - bandPivotOffsetDb[midBand]);
         check (std::abs (monoBand - monoExpected) < 0.3, "mono: band law, mid tone @ -10, 50%", monoBand);
         const double g = rmsDb (out, (int) (1.5 * sr), (int) (0.5 * sr)) + 10.0;
         if (numBands == 3)

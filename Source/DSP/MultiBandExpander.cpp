@@ -222,18 +222,24 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         for (int b = 0; b < numBands; ++b)
         {
             float gDb;
+            float bandOffset = 0.0f;
+            if constexpr (hasBandPivotOffsets)
+                bandOffset = bandPivotOffsetDb[b];
+
             if (b < numBassBands)
             {
                 float contribution = 0.0f;
                 gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
-                                         bassRMinus1, bassPivot, impAmt, wetAmt,
-                                         &contribution, rMinus1, pivot);
+                                         bassRMinus1, bassPivot + bandOffset, impAmt, wetAmt,
+                                         &contribution, rMinus1, pivot + bandOffset);
                 if (std::abs (contribution) >= std::abs (bassDb))
                     bassDb = contribution;
             }
             else
             {
-                const float pivotForBand = (b == numBands - 1) ? hfPivot : pivot;
+                float pivotForBand = (b == numBands - 1) ? hfPivot : pivot;
+                if constexpr (hasBandPivotOffsets)
+                    pivotForBand += bandOffset;
                 gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
                                          rMinus1, pivotForBand, impAmt, wetAmt);
             }
