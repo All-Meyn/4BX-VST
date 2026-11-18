@@ -2,7 +2,7 @@
 
 A 3-band dynamic-range expander with transient "impact" enhancement, modelled on
 the behaviour described in the owner's manual of a classic 1980s hi-fi expander.
-VST3 + Standalone, built with [JUCE](https://juce.com) 8 and CMake.
+VST3 + Standalone, built with [JUCE](https://juce.com) 9 and CMake.
 
 ## Controls
 
@@ -31,15 +31,26 @@ to −20 dB, red = upward expansion to +12 dB; IMP = impact boost (loudest band)
 
 All tunable constants live in `Source/DSP/ExpanderConstants.h`, each marked as
 taken from the manual or chosen by us.
-JUCE is downloaded automatically at configure time; it's licensed to this
-project under the GPLv3 (see `LICENSE`).
+
+## Licensing
+
+JUCE (9.0.5) is downloaded automatically at configure time. Its modules are
+dual-licensed under the **AGPLv3** or a commercial JUCE licence. This project's
+own code is GPLv3 (see `LICENSE`); GPLv3 permits combining it with AGPLv3 code,
+and a distributed binary built with the free JUCE licence must meet the AGPLv3
+terms (including making the complete source available). To ship closed-source,
+you need a commercial JUCE licence. This is a summary, not legal advice.
 
 ## Build
 
-Requirements: CMake 3.22+, a C++17 compiler, Ninja (optional).
+Requirements: CMake 3.22+ (4.2+ for the Visual Studio 2026 generator),
+a C++17 compiler, Ninja (optional).
 On Linux, JUCE also needs: `libasound2-dev libjack-jackd2-dev libfreetype-dev
 libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev
-libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev libgtk-3-dev`.
+libxinerama-dev libxrandr-dev libxrender-dev libxi-dev libgl1-mesa-dev libgtk-3-dev`.
+
+After changing the JUCE version, delete the `build` folder (or run a fresh
+configure) so CMake fetches the new release.
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
