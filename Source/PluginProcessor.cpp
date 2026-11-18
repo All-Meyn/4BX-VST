@@ -49,8 +49,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout FourBXAudioProcessor::create
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::volume, 1 }, "Output Volume",
         NormalisableRange<float> (-40.0f, 10.0f, 0.1f), 0.0f, dB));
 
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::bypass, 1 }, "Expander Bypass", false));
-    layout.add (std::make_unique<AudioParameterBool> (ParameterID { ParamIDs::softClip, 1 }, "Soft Clip", false));
+    // On/off switches are two-option choices rather than AudioParameterBool:
+    // AudioParameterBool keeps an unsnapped value (e.g. 0.66) that changes after a
+    // state save/restore, which pluginval flags. A choice snaps to Off/On at once.
+    // Same IDs, and the state still stores 0 or 1, so existing sessions load unchanged.
+    const StringArray offOn { "Off", "On" };
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::bypass, 1 }, "Expander Bypass", offOn, 0));
+    layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::softClip, 1 }, "Soft Clip", offOn, 0));
 
     return layout;
 }
