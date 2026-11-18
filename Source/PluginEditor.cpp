@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "Diagnostics/WindowDiagnostics.h"
 
 namespace
 {
@@ -56,6 +57,14 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
         c->setFixedAspectRatio ((double) panelWidth / (double) panelHeight);
     setSize (panelWidth * 5 / 4, panelHeight * 5 / 4);
 
+    diagLabel.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 10.0f, juce::Font::plain));
+    diagLabel.setColour (juce::Label::backgroundColourId, juce::Colours::black.withAlpha (0.85f));
+    diagLabel.setColour (juce::Label::textColourId, juce::Colours::lightgreen);
+    diagLabel.setJustificationType (juce::Justification::topLeft);
+    diagLabel.setMinimumHorizontalScale (0.5f);
+    diagLabel.setInterceptsMouseClicks (false, false);
+    addAndMakeVisible (diagLabel);
+
     startTimerHz (30);
 }
 
@@ -93,8 +102,42 @@ void FourBXAudioProcessorEditor::updateRenderingEngine()
         peer->setCurrentRenderingEngine (wanted);
 }
 
+void FourBXAudioProcessorEditor::updateDiagnostics()
+{
+    ++diagTicks;
+    const auto now = juce::Time::getMillisecondCounter();
+    if (diagLastMs != 0 && now - diagLastMs < 500)
+        return;
+
+    const double secs = diagLastMs == 0 ? 1.0 : (double) (now - diagLastMs) / 1000.0;
+    const auto blocks = processor.diagProcessBlocks.load();
+    const int paintsPerSec = (int) std::lround ((front.diagPaints - diagPaintsAtLast) / secs);
+    const int ticksPerSec  = (int) std::lround ((diagTicks - diagTicksAtLast) / secs);
+    const int blocksPerSec = (int) std::lround ((double) (blocks - diagBlocksAtLast) / secs);
+    diagLastMs = now; diagPaintsAtLast = front.diagPaints; diagTicksAtLast = diagTicks; diagBlocksAtLast = blocks;
+
+    juce::String engine = "(no peer)";
+    std::string chain = "(no peer)";
+    if (auto* peer = getPeer())
+    {
+        engine = peer->getAvailableRenderingEngines()[peer->getCurrentRenderingEngine()];
+        chain = fourbx::diag::describeWindowChain (peer->getNativeHandle());
+    }
+
+    juce::String line1;
+    line1 << "DIAG  audio blocks/s=" << blocksPerSec
+          << "  setState=" << (int) processor.diagSetState.load() << " getState=" << (int) processor.diagGetState.load()
+          << "  paints/s=" << paintsPerSec << " ticks/s=" << ticksPerSec
+          << "  engine=" << engine
+          << "  editor enabled=" << (isEnabled() ? 1 : 0) << " showing=" << (isShowing() ? 1 : 0)
+          << " alpha=" << juce::String (getAlpha(), 2)
+          << "  size=" << getWidth() << "x" << getHeight();
+    diagLabel.setText (line1 + "\n" + juce::String (chain), juce::dontSendNotification);
+}
+
 void FourBXAudioProcessorEditor::timerCallback()
 {
+    updateDiagnostics();
     updateRenderingEngine();
 
     const auto& m = processor.getMeters();
@@ -130,4 +173,6 @@ void FourBXAudioProcessorEditor::resized()
 {
     const float scale = (float) getWidth() / (float) fourbx::ui::panelWidth;
     content.setTransform (juce::AffineTransform::scale (scale));
+    diagLabel.setBounds (0, 0, getWidth(), 28);
+    diagLabel.toFront (false);
 }
