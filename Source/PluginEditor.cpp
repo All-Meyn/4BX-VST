@@ -36,7 +36,7 @@ namespace
     }
 }
 
-FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
+TriExpandAudioProcessorEditor::TriExpandAudioProcessorEditor (TriExpandAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processor (p),
       displayLevel (loadDisplayLevel (p.apvts)),
@@ -44,7 +44,7 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
       front (p, displayLevel),
       rear (p, displayLevel)
 {
-    using namespace fourbx::ui;
+    using namespace triexpand::ui;
 
     content.setSize (panelWidth, panelHeight);
     for (auto* panel : { static_cast<juce::Component*> (&front), static_cast<juce::Component*> (&rear) })
@@ -80,18 +80,18 @@ FourBXAudioProcessorEditor::FourBXAudioProcessorEditor (FourBXAudioProcessor& p)
     startTimerHz (30);
 }
 
-FourBXAudioProcessorEditor::~FourBXAudioProcessorEditor()
+TriExpandAudioProcessorEditor::~TriExpandAudioProcessorEditor()
 {
     stopTimer();
 }
 
-void FourBXAudioProcessorEditor::showRear (bool showRearPanel)
+void TriExpandAudioProcessorEditor::showRear (bool showRearPanel)
 {
     front.setVisible (! showRearPanel);
     rear.setVisible (showRearPanel);
 }
 
-void FourBXAudioProcessorEditor::updateRenderingEngine()
+void TriExpandAudioProcessorEditor::updateRenderingEngine()
 {
     // The host creates the native window after the editor is constructed and may
     // recreate it, so this is called from the timer as well as from the switch.
@@ -114,7 +114,7 @@ void FourBXAudioProcessorEditor::updateRenderingEngine()
         peer->setCurrentRenderingEngine (wanted);
 }
 
-void FourBXAudioProcessorEditor::timerCallback()
+void TriExpandAudioProcessorEditor::timerCallback()
 {
     updateRenderingEngine();
 
@@ -142,13 +142,13 @@ void FourBXAudioProcessorEditor::timerCallback()
         front.setMeterValues (shownExpDb, shownImpactDb);
 }
 
-void FourBXAudioProcessorEditor::paint (juce::Graphics& g)
+void TriExpandAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colours::black);
 }
 
-void FourBXAudioProcessorEditor::resized()
+void TriExpandAudioProcessorEditor::resized()
 {
-    const float scale = (float) getWidth() / (float) fourbx::ui::panelWidth;
+    const float scale = (float) getWidth() / (float) triexpand::ui::panelWidth;
     content.setTransform (juce::AffineTransform::scale (scale));
 }

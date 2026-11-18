@@ -3,11 +3,11 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DSP/ThreeBandExpander.h"
 
-class FourBXAudioProcessor final : public juce::AudioProcessor
+class TriExpandAudioProcessor final : public juce::AudioProcessor
 {
 public:
-    FourBXAudioProcessor();
-    ~FourBXAudioProcessor() override = default;
+    TriExpandAudioProcessor();
+    ~TriExpandAudioProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -49,7 +49,7 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    const fourbx::ThreeBandExpander::Meters& getMeters() const noexcept { return expander.getMeters(); }
+    const triexpand::ThreeBandExpander::Meters& getMeters() const noexcept { return expander.getMeters(); }
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -65,7 +65,7 @@ private:
     std::atomic<float>* bypassParam        = nullptr;
     std::atomic<float>* softClipParam      = nullptr;
 
-    fourbx::ThreeBandExpander expander;
+    triexpand::ThreeBandExpander expander;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FourBXAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriExpandAudioProcessor)
 };

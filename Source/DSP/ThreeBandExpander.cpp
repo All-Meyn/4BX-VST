@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace fourbx
+namespace triexpand
 {
 using namespace constants;
 
@@ -214,4 +214,4 @@ void ThreeBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
     }
 }
 
-} // namespace fourbx
+} // namespace triexpand

@@ -3,12 +3,12 @@
 #include "PluginProcessor.h"
 #include "UI/Panels.h"
 
-class FourBXAudioProcessorEditor final : public juce::AudioProcessorEditor,
+class TriExpandAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                          private juce::Timer
 {
 public:
-    explicit FourBXAudioProcessorEditor (FourBXAudioProcessor&);
-    ~FourBXAudioProcessorEditor() override;
+    explicit TriExpandAudioProcessorEditor (TriExpandAudioProcessor&);
+    ~TriExpandAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -18,7 +18,7 @@ private:
     void showRear (bool rear);
     void updateRenderingEngine();
 
-    FourBXAudioProcessor& processor;
+    TriExpandAudioProcessor& processor;
 
     // LED brightness from the Display slider; UI-only, saved with the session
     // as a property of the plugin state (not a host-automatable parameter).
@@ -30,13 +30,13 @@ private:
     bool gpuRendering = true;
 
     juce::Component content; // fixed 1000 x 210 space, scaled to the window
-    fourbx::ui::FrontPanel front;
-    fourbx::ui::RearPanel rear;
+    triexpand::ui::FrontPanel front;
+    triexpand::ui::RearPanel rear;
     juce::TooltipWindow tooltips { this, 600 };
 
     // Meter values shown, with decay so short peaks stay visible.
-    std::array<float, fourbx::constants::numBands> shownExpDb {};
+    std::array<float, triexpand::constants::numBands> shownExpDb {};
     float shownImpactDb = 0.0f;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FourBXAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriExpandAudioProcessorEditor)
 };

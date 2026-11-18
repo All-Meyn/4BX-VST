@@ -1,6 +1,6 @@
 #include "PanelWidgets.h"
 
-namespace fourbx::ui
+namespace triexpand::ui
 {
 
 void drawLed (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour colour, float amount, float display)
@@ -213,4 +213,4 @@ juce::Label* PanelLookAndFeel::createSliderTextBox (juce::Slider& s)
     return l;
 }
 
-} // namespace fourbx::ui
+} // namespace triexpand::ui

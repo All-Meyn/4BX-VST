@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-FourBXAudioProcessor::FourBXAudioProcessor()
+TriExpandAudioProcessor::TriExpandAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
@@ -20,7 +20,7 @@ FourBXAudioProcessor::FourBXAudioProcessor()
              && impactReleaseParam && volumeParam && bypassParam && softClipParam);
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout FourBXAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::createParameterLayout()
 {
     using namespace juce;
     AudioProcessorValueTreeState::ParameterLayout layout;
@@ -30,7 +30,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout FourBXAudioProcessor::create
     const auto ms  = AudioParameterFloatAttributes().withLabel ("ms");
 
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::expansion, 1 }, "Expansion",
-        NormalisableRange<float> (0.0f, fourbx::constants::maxExpansionPercent, 0.1f), 25.0f, pct));
+        NormalisableRange<float> (0.0f, triexpand::constants::maxExpansionPercent, 0.1f), 25.0f, pct));
 
     layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::transition, 1 }, "Transition Level",
         NormalisableRange<float> (-40.0f, 0.0f, 0.1f), -20.0f, dB));
@@ -60,9 +60,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout FourBXAudioProcessor::create
     return layout;
 }
 
-void FourBXAudioProcessor::pushParametersToDsp() noexcept
+void TriExpandAudioProcessor::pushParametersToDsp() noexcept
 {
-    fourbx::ThreeBandExpander::Parameters p;
+    triexpand::ThreeBandExpander::Parameters p;
     p.expansionPercent = expansionParam->load();
     p.transitionDb     = transitionParam->load();
     p.hfTransitionDb   = hfTransitionParam->load();
@@ -74,15 +74,15 @@ void FourBXAudioProcessor::pushParametersToDsp() noexcept
     expander.setParameters (p);
 }
 
-void FourBXAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void TriExpandAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     expander.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
     pushParametersToDsp(); // first call after prepare snaps to current values
 }
 
-void FourBXAudioProcessor::releaseResources() {}
+void TriExpandAudioProcessor::releaseResources() {}
 
-bool FourBXAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool TriExpandAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     const auto& out = layouts.getMainOutputChannelSet();
     if (out != juce::AudioChannelSet::mono() && out != juce::AudioChannelSet::stereo())
@@ -90,7 +90,7 @@ bool FourBXAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) c
     return out == layouts.getMainInputChannelSet();
 }
 
-void FourBXAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void TriExpandAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
@@ -101,18 +101,18 @@ void FourBXAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     expander.process (buffer);
 }
 
-juce::AudioProcessorEditor* FourBXAudioProcessor::createEditor()
+juce::AudioProcessorEditor* TriExpandAudioProcessor::createEditor()
 {
-    return new FourBXAudioProcessorEditor (*this);
+    return new TriExpandAudioProcessorEditor (*this);
 }
 
-void FourBXAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void TriExpandAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto xml = apvts.copyState().createXml())
         copyXmlToBinary (*xml, destData);
 }
 
-void FourBXAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void TriExpandAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
@@ -121,5 +121,5 @@ void FourBXAudioProcessor::setStateInformation (const void* data, int sizeInByte
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new FourBXAudioProcessor();
+    return new TriExpandAudioProcessor();
 }

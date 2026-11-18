@@ -1,8 +1,8 @@
 #include "Panels.h"
 
-namespace fourbx::ui
+namespace triexpand::ui
 {
-using IDs = FourBXAudioProcessor::ParamIDs;
+using IDs = TriExpandAudioProcessor::ParamIDs;
 
 namespace
 {
@@ -35,7 +35,7 @@ namespace
 }
 
 //==============================================================================
-FrontPanel::FrontPanel (FourBXAudioProcessor& p, float& displayLevel)
+FrontPanel::FrontPanel (TriExpandAudioProcessor& p, float& displayLevel)
     : display (displayLevel),
       volume     ({ -30.0, -20.0, -10.0, 0.0, 10.0 }, displayLevel),
       expansion  ({ 10.0, 20.0, 30.0, 40.0, 50.0 }, displayLevel),
@@ -150,7 +150,9 @@ void FrontPanel::paint (juce::Graphics& g)
     // Badge.
     g.setColour (colours::legend);
     g.setFont (juce::Font (juce::FontOptions (40.0f, juce::Font::bold)).withExtraKerningFactor (-0.02f));
-    g.drawText ("4BX", juce::Rectangle<float> (34.0f, 26.0f, 110.0f, 46.0f), juce::Justification::centredLeft);
+    g.drawText ("TRI", juce::Rectangle<float> (34.0f, 22.0f, 106.0f, 42.0f), juce::Justification::centredLeft);
+    g.setFont (juce::Font (juce::FontOptions (13.0f, juce::Font::bold)).withExtraKerningFactor (0.32f));
+    g.drawText ("EXPAND", juce::Rectangle<float> (36.0f, 64.0f, 106.0f, 16.0f), juce::Justification::centredLeft);
 
     // Rear-panel button legend.
     drawLegend (g, "REAR", { 26.0f, 152.0f, 50.0f, 10.0f }, 8.0f);
@@ -240,7 +242,7 @@ void FrontPanel::resized()
 }
 
 //==============================================================================
-RearPanel::RearPanel (FourBXAudioProcessor& p, const float& displayLevel)
+RearPanel::RearPanel (TriExpandAudioProcessor& p, const float& displayLevel)
     : display (displayLevel)
 {
     for (auto* pot : { &releasePot, &hfPot })
@@ -305,7 +307,7 @@ void RearPanel::paint (juce::Graphics& g)
     for (float x = 0.0f; x < bounds.getRight(); x += 3.0f)
         g.drawVerticalLine ((int) x, 0.0f, bounds.getBottom());
 
-    drawLegend (g, "MODEL 4BX", { 34.0f, 22.0f, 120.0f, 12.0f }, 10.0f, juce::Justification::centredLeft);
+    drawLegend (g, "MODEL TRI-EXPAND", { 34.0f, 22.0f, 200.0f, 12.0f }, 10.0f, juce::Justification::centredLeft);
     drawLegend (g, "REAR PANEL CONTROLS", { 34.0f, 36.0f, 200.0f, 10.0f }, 8.0f, juce::Justification::centredLeft,
                 colours::legend.withAlpha (0.6f));
 
@@ -363,4 +365,4 @@ void RearPanel::resized()
     frontButton.setBounds (920, 126, 30, 14);
 }
 
-} // namespace fourbx::ui
+} // namespace triexpand::ui

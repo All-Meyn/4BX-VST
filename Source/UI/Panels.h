@@ -3,7 +3,7 @@
 #include "PanelWidgets.h"
 #include "../PluginProcessor.h"
 
-namespace fourbx::ui
+namespace triexpand::ui
 {
 
 // Both panels are laid out in a fixed 1000 x 210 coordinate space
@@ -14,7 +14,7 @@ inline constexpr int panelHeight = 210;
 class FrontPanel final : public juce::Component
 {
 public:
-    FrontPanel (FourBXAudioProcessor&, float& displayLevel);
+    FrontPanel (TriExpandAudioProcessor&, float& displayLevel);
     ~FrontPanel() override;
 
     void paint (juce::Graphics&) override;
@@ -60,7 +60,7 @@ private:
 class RearPanel final : public juce::Component
 {
 public:
-    RearPanel (FourBXAudioProcessor&, const float& displayLevel);
+    RearPanel (TriExpandAudioProcessor&, const float& displayLevel);
     ~RearPanel() override;
 
     void paint (juce::Graphics&) override;
@@ -87,4 +87,4 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RearPanel)
 };
 
-} // namespace fourbx::ui
+} // namespace triexpand::ui
