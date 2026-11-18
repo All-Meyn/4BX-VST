@@ -14,13 +14,13 @@ namespace
     constexpr float rowX = 312.0f, rowW = 208.0f;   // LED row extent
     constexpr float rowYs[3] = { 34.0f, 63.0f, 92.0f }; // HF, MF, LF (top to bottom)
     constexpr float impactRowY = 142.0f;
-    constexpr float ledW = 14.0f, ledH = 6.0f;
+    constexpr float rowLedW = 14.0f, rowLedH = 6.0f;
 
     juce::Rectangle<float> rowLed (int index, float y) // index 0..11 left to right
     {
         const float slot = (rowW - 6.0f) / 12.0f;
         const float x = rowX + (float) index * slot + (index >= 6 ? 6.0f : 0.0f);
-        return { x + (slot - ledW) * 0.5f, y - ledH * 0.5f, ledW, ledH };
+        return { x + (slot - rowLedW) * 0.5f, y - rowLedH * 0.5f, rowLedW, rowLedH };
     }
 
     void drawTriangle (juce::Graphics& g, juce::Point<float> c, bool up)
