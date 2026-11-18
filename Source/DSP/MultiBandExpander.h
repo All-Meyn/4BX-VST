@@ -29,6 +29,7 @@ public:
         bool  softClip         = false;
         float bassRestorePercent = 0.0f;  // 0..100: extra expansion in the bass bands (Hepta-Expand only)
         float bassTransitionDb   = 0.0f;  // offset added to the bass bands' pivot (Hepta-Expand only)
+        bool  autoHeadroom       = false; // Hepta-Expand only: match output peaks to input peaks
     };
 
     // Gain readings for the UI. Written by the audio thread, read by the UI thread.
@@ -38,6 +39,10 @@ public:
         std::array<std::atomic<float>, constants::numBands> impactDb {};
         // Extra gain Bass Restoration adds to the bass (largest of the bass bands, dB, +/-).
         std::atomic<float> bassRestoreDb { 0.0f };
+        // Largest absolute output sample in the last block (after Volume / Soft Clip).
+        std::atomic<float> outputPeak { 0.0f };
+        // Current Auto Headroom trim in dB (0 or negative).
+        std::atomic<float> headroomTrimDb { 0.0f };
     };
 
     void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -105,6 +110,11 @@ private:
                                impactAmount, outputDb, wet,
                                bassExtraRatio, bassTransitionDb; // used only when numBassBands > 0
     bool softClipEnabled = false;
+
+    // Auto Headroom state (used only when constants::hasAutoHeadroom).
+    bool  autoHeadroomEnabled = false;
+    float inPeakEnv = 0.0f, outPeakEnv = 0.0f, headroomTrim = 1.0f;
+    float peakReleaseMul = 0.0f, trimAttackCoeff = 0.0f, trimReleaseCoeff = 0.0f;
 
     Meters meters;
 };

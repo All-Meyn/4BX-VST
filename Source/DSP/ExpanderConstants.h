@@ -37,6 +37,7 @@ namespace triexpand::constants
 
     // Tri-Expand is the reference for band-width compensation (no offsets).
     inline constexpr bool hasBandPivotOffsets = false;
+    inline constexpr bool hasAutoHeadroom = false; // Tri-Expand 1.0 behaviour kept
     inline constexpr float bandPivotOffsetDb[numBands] = { 0.0f, 0.0f, 0.0f };
 #else
     // ---- Hepta-Expand: 7 bands ----
@@ -65,6 +66,7 @@ namespace triexpand::constants
     // spectrum over 20 Hz-20 kHz: 10*log10(ln(hi/lo) / ln(HI/LO)). Each band then
     // behaves like the corresponding Tri-Expand band. [chosen]
     inline constexpr bool hasBandPivotOffsets = true;
+    inline constexpr bool hasAutoHeadroom = true;
     inline constexpr float bandPivotOffsetDb[numBands] = { -2.63f, -3.42f, -5.75f, -6.05f, -6.05f, -6.25f, 0.0f };
 #endif
     // Bass Restoration: extra expansion ratio added to the bass bands at 100 %
@@ -107,6 +109,14 @@ namespace triexpand::constants
     inline constexpr float impactDeadbandDb = 2.0f;
     // Per-band multiplier on the user's Impact Release time. [chosen]
     // (impactReleaseBandScale, per band: see the band tables.)
+
+    // Auto Headroom (Hepta-Expand). Tracks the input's and the expander output's peak
+    // envelopes and turns the output down by however much the expander raises the
+    // peaks, so active and bypassed peaks stay about level. Down only. [chosen]
+    inline constexpr float headroomPeakReleaseSeconds = 1.5f;  // peak envelopes: instant attack, this release
+    inline constexpr float headroomTrimAttackSeconds  = 0.05f; // trim moves down this fast
+    inline constexpr float headroomTrimReleaseSeconds = 3.0f;  // ...and recovers this slowly
+    inline constexpr float headroomMaxTrimDb          = -12.0f;
 
     // Parameter smoothing time, seconds. [chosen]
     inline constexpr double parameterSmoothingSeconds = 0.05;

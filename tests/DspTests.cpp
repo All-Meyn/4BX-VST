@@ -344,6 +344,68 @@ int main()
                "bass 0%: normal law in the bass, meter 0", ex3.getMeters().bassRestoreDb.load());
     }
 
+    // 7e. Auto Headroom (Hepta-Expand only): output peaks follow input peaks; down only.
+    if constexpr (hasAutoHeadroom)
+    {
+        auto peakDb = [] (const juce::AudioBuffer<float>& b, int start)
+        {
+            float pk = 0.0f;
+            for (int ch = 0; ch < b.getNumChannels(); ++ch)
+                pk = juce::jmax (pk, b.getMagnitude (ch, start, b.getNumSamples() - start));
+            return 20.0 * std::log10 (pk + 1e-12);
+        };
+
+        // Steady upward expansion (+~5 dB) is cancelled at the output.
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.autoHeadroom = true;
+        const double steady = steadyGainDb (p, midHz, -10.0);
+        check (std::abs (steady) < 0.5, "auto headroom: steady +gain cancelled (output ~ input level)", steady);
+
+        // Down only: downward expansion is left alone (no make-up gain).
+        const double quiet = steadyGainDb (p, midHz, -30.0);
+        p.autoHeadroom = false;
+        const double quietRef = steadyGainDb (p, midHz, -30.0);
+        check (std::abs (quiet - quietRef) < 0.1, "auto headroom: never boosts (downward expansion unchanged)", quiet - quietRef);
+
+        // Drum-like hits with Impact 100 %: output peaks stay near input peaks.
+        const auto hits = [] (int i)
+        {
+            const double t = i / sr, bt = std::fmod (t, 0.5);
+            return (float) (0.5 * std::exp (-bt * 25) * std::sin (2.0 * juce::MathConstants<double>::pi * 180.0 * bt)
+                            + 0.05 * std::sin (2.0 * juce::MathConstants<double>::pi * 632.0 * t));
+        };
+        auto ph = neutral();
+        ph.impactPercent = 100.0f;
+        ph.expansionPercent = 30.0f;
+        ph.transitionDb = -30.0f;
+        const int settle = (int) (4.0 * sr);
+        double inPk = 0.0;
+        { auto in = run (neutral(), 6.0, hits); ph.bypass = false; (void) in; }
+        {
+            juce::AudioBuffer<float> src (2, (int) (6.0 * sr));
+            for (int i = 0; i < src.getNumSamples(); ++i) for (int ch = 0; ch < 2; ++ch) src.setSample (ch, i, hits (i));
+            inPk = peakDb (src, settle);
+        }
+        ph.autoHeadroom = false;
+        const double offPk = peakDb (run (ph, 6.0, hits), settle) - inPk;
+        ph.autoHeadroom = true;
+        MultiBandExpander hx;
+        const double onPk = peakDb (run (ph, 6.0, hits, 2, &hx), settle) - inPk;
+        std::printf ("INFO  Impact 100%% hits: output peak vs input %+.2f dB without, %+.2f dB with Auto Headroom (trim %.2f dB)\n",
+                     offPk, onPk, hx.getMeters().headroomTrimDb.load());
+        check (offPk > 2.0 && onPk < 1.0, "auto headroom: Impact peaks held within 1 dB of input", onPk);
+
+        // Bypassed: transparent (only Volume applies).
+        auto pb = neutral();
+        pb.autoHeadroom = true;
+        pb.bypass = true;
+        pb.expansionPercent = 50.0f;
+        pb.outputDb = -3.0f;
+        const double byp = steadyGainDb (pb, midHz, -5.0);
+        check (std::abs (byp + 3.0) < 0.1, "auto headroom + bypass: only Volume applies (-3 dB)", byp);
+    }
+
     // 8. Expander bypass removes expansion and impact but keeps output volume.
     {
         auto p = neutral();

@@ -38,6 +38,7 @@ private:
     std::array<float, triexpand::constants::numBands> shownExpDb {};
     float shownImpactDb = 0.0f;
     float shownBassDb = 0.0f;
+    int overHoldTicks = 0; // OVER LED stays lit ~1 s after an over
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriExpandAudioProcessorEditor)
 };

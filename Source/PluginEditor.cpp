@@ -139,8 +139,20 @@ void TriExpandAudioProcessorEditor::timerCallback()
     shownImpactDb = follow (shownImpactDb, impactMax);
     shownBassDb = follow (shownBassDb, m.bassRestoreDb.load (std::memory_order_relaxed));
 
+    if (m.outputPeak.load (std::memory_order_relaxed) > 1.0f)
+        overHoldTicks = 30;
+    else if (overHoldTicks > 0)
+        --overHoldTicks;
+
     if (front.isVisible())
+    {
         front.setMeterValues (shownExpDb, shownImpactDb, shownBassDb);
+        front.setOverLit (overHoldTicks > 0);
+    }
+    else
+    {
+        rear.setHeadroomTrimDb (m.headroomTrimDb.load (std::memory_order_relaxed));
+    }
 }
 
 void TriExpandAudioProcessorEditor::paint (juce::Graphics& g)

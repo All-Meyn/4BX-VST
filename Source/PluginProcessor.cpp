@@ -25,6 +25,12 @@ TriExpandAudioProcessor::TriExpandAudioProcessor()
         bassTransitionParam = apvts.getRawParameterValue (ParamIDs::bassTransition);
         jassert (bassRestoreParam && bassTransitionParam);
     }
+
+    if constexpr (hasAutoHeadroom)
+    {
+        autoHeadroomParam = apvts.getRawParameterValue (ParamIDs::autoHeadroom);
+        jassert (autoHeadroomParam);
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::createParameterLayout()
@@ -74,6 +80,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::cre
             NormalisableRange<float> (-10.0f, 10.0f, 0.1f), 0.0f, dB));
     }
 
+    if constexpr (hasAutoHeadroom)
+    {
+        // On by default: keeps active output peaks near the input's, so the plugin
+        // doesn't push loud masters into clipping after it.
+        layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::autoHeadroom, 1 }, "Auto Headroom", offOn, 1));
+    }
+
     return layout;
 }
 
@@ -93,6 +106,8 @@ void TriExpandAudioProcessor::pushParametersToDsp() noexcept
         p.bassRestorePercent = bassRestoreParam->load();
         p.bassTransitionDb   = bassTransitionParam->load();
     }
+    if constexpr (hasAutoHeadroom)
+        p.autoHeadroom = autoHeadroomParam->load() >= 0.5f;
     expander.setParameters (p);
 }
 

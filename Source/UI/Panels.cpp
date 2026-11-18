@@ -114,6 +114,15 @@ void FrontPanel::setMeterValues (const std::array<float, constants::numBands>& e
     repaint (bypassButton.getBounds().withY (104 + (int) oy).withHeight (14)); // bypass LED (host automation)
 }
 
+void FrontPanel::setOverLit (bool lit)
+{
+    if (lit != overLit)
+    {
+        overLit = lit;
+        repaint (juce::Rectangle<int> (160, 8 + (int) oy, 50, 18));
+    }
+}
+
 void FrontPanel::drawGainRow (juce::Graphics& g, float y, float expDb) const
 {
     for (int i = 0; i < 6; ++i)
@@ -180,6 +189,12 @@ void FrontPanel::paint (juce::Graphics& g)
     drawArrows (g, volume);
     drawArrows (g, expansion);
     drawLegend (g, "VOLUME",    { 135.0f, 156.0f + oy, 66.0f, 10.0f }, 8.5f);
+    if constexpr (hasHeadroomUi)
+    {
+        // OVER: the plugin's output went above 0 dBFS (held ~1 s by the editor).
+        drawLed (g, juce::Rectangle<float> (10.0f, 5.0f).withCentre ({ 169.0f, 18.0f + oy }), colours::ledRed, overLit ? 1.0f : 0.0f, display);
+        drawLegend (g, "OVER", { 178.0f, 13.0f + oy, 30.0f, 10.0f }, 7.5f, juce::Justification::centredLeft);
+    }
     drawLegend (g, "EXPANSION", { 210.0f, 156.0f + oy, 72.0f, 10.0f }, 8.5f);
 
     // Gain-change rows.
@@ -308,6 +323,15 @@ RearPanel::RearPanel (TriExpandAudioProcessor& p, const float& displayLevel)
     frontButton.onClick = [this] { if (onShowFront) onShowFront(); };
     addAndMakeVisible (frontButton);
 
+    if constexpr (hasHeadroomUi)
+    {
+        autoHeadroomButton.setClickingTogglesState (true);
+        autoHeadroomButton.setTooltip ("Auto Headroom: keeps the output's peaks near the input's");
+        autoHeadroomButton.onClick = [this] { repaint(); };
+        addAndMakeVisible (autoHeadroomButton);
+        autoHeadroomAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.apvts, IDs::autoHeadroom, autoHeadroomButton);
+    }
+
     gpuButton.setClickingTogglesState (true);
     gpuButton.setToggleState (true, juce::dontSendNotification);
     gpuButton.setTooltip ("GPU drawing (Direct2D). Turn off if the window goes blank in your host.");
@@ -317,6 +341,16 @@ RearPanel::RearPanel (TriExpandAudioProcessor& p, const float& displayLevel)
         if (onGpuChanged) onGpuChanged (gpuButton.getToggleState());
     };
     addChildComponent (gpuButton); // hidden until the editor knows both renderers exist
+}
+
+void RearPanel::setHeadroomTrimDb (float db)
+{
+    if (std::abs (db - headroomTrimDb) >= 0.05f)
+    {
+        headroomTrimDb = db;
+        const auto b = autoHeadroomButton.getBounds();
+        repaint (b.getX() - 40, b.getBottom() + 4, b.getWidth() + 80, 30);
+    }
 }
 
 void RearPanel::setGpuSwitchState (bool gpuOn)
@@ -398,6 +432,18 @@ void RearPanel::paint (juce::Graphics& g)
              colours::ledRed, softClipButton.getToggleState() ? 1.0f : 0.0f, display);
     drawLegend (g, "SOFT CLIP", { sb.getCentreX() - 40.0f, sb.getBottom() + 8.0f, 80.0f, 10.0f }, 8.5f);
 
+    if constexpr (hasHeadroomUi)
+    {
+        const auto ab = autoHeadroomButton.getBounds().toFloat();
+        const bool on = autoHeadroomButton.getToggleState();
+        drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ ab.getCentreX(), ab.getY() - 10.0f }),
+                 colours::ledRed, on ? 1.0f : 0.0f, display);
+        drawLegend (g, "AUTO HEADROOM", { ab.getCentreX() - 50.0f, ab.getBottom() + 8.0f, 100.0f, 10.0f }, 8.5f);
+        drawLegend (g, on ? juce::String (headroomTrimDb, 1) + " dB" : juce::String ("OFF"),
+                    { ab.getCentreX() - 40.0f, ab.getBottom() + 20.0f, 80.0f, 9.0f }, 7.5f,
+                    juce::Justification::centred, colours::legend.withAlpha (0.6f));
+    }
+
     if (gpuButton.isVisible())
     {
         const auto gb = gpuButton.getBounds().toFloat();
@@ -419,6 +465,7 @@ void RearPanel::resized()
     bassPot.setBounds (200, 76 + dy, 80, 96);
     softClipButton.setBounds (620, 112 + dy, 30, 14);
     gpuButton.setBounds (700, 112 + dy, 30, 14);
+    autoHeadroomButton.setBounds (620, 162 + dy, 30, 14);
     frontButton.setBounds (920, 126 + dy, 30, 14);
 }
 

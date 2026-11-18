@@ -58,6 +58,10 @@ void MultiBandExpander::prepare (double newSampleRate, int maxBlockSize, int new
     }
     lastImpactReleaseMs = -1.0f; // force recompute on next setParameters()
 
+    peakReleaseMul   = (float) std::exp (-1.0 / (headroomPeakReleaseSeconds * sampleRate));
+    trimAttackCoeff  = onePoleCoeff (headroomTrimAttackSeconds, sampleRate);
+    trimReleaseCoeff = onePoleCoeff (headroomTrimReleaseSeconds, sampleRate);
+
     for (auto* sv : { &ratioMinusOne, &transitionDb, &hfTransitionDb, &impactAmount, &outputDb, &wet,
                       &bassExtraRatio, &bassTransitionDb })
         sv->reset (sampleRate, parameterSmoothingSeconds);
@@ -78,6 +82,11 @@ void MultiBandExpander::reset()
         s.slowEnvDb = amplitudeToDb (impactEnvFloor);
         s.impactGainDb = 0.0f;
     }
+
+    inPeakEnv = outPeakEnv = 0.0f;
+    headroomTrim = 1.0f;
+    meters.outputPeak.store (0.0f, std::memory_order_relaxed);
+    meters.headroomTrimDb.store (0.0f, std::memory_order_relaxed);
 
     for (auto& m : meters.expansionDb) m.store (0.0f, std::memory_order_relaxed);
     for (auto& m : meters.impactDb)    m.store (0.0f, std::memory_order_relaxed);
@@ -103,6 +112,7 @@ void MultiBandExpander::setParameters (const Parameters& p) noexcept
     setOrSnap (bassExtraRatio,   juce::jlimit (0.0f, 100.0f, p.bassRestorePercent) / 100.0f * maxBassExtraRatio, snap);
     setOrSnap (bassTransitionDb, p.bassTransitionDb, snap);
     softClipEnabled = p.softClip;
+    autoHeadroomEnabled = hasAutoHeadroom && p.autoHeadroom;
 
     if (! juce::exactlyEqual (p.impactReleaseMs, lastImpactReleaseMs))
     {
@@ -175,6 +185,8 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
     float bandSig[maxChans][numBands];
     float bandExpDb[numBands] {};
     float bassDb = 0.0f;
+    float blockOutPeak = 0.0f;
+    const float minTrim = dbToGain (headroomMaxTrimDb);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -194,11 +206,13 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
 
         // Split into bands and gather linked (channel-averaged) detector inputs.
         float ms[numBands] {}, ab[numBands] {};
+        float inPeak = 0.0f;
         bassDb = 0.0f; // reset per sample; the block-end value goes to the meter
         for (int ch = 0; ch < chans && ch < maxChans; ++ch)
         {
             auto* band = bandSig[ch];
             float rest = data[ch][i];
+            inPeak = juce::jmax (inPeak, std::abs (rest));
             for (int k = 0; k < numSplits; ++k)
             {
                 float lowPart, highPart;
@@ -247,13 +261,45 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
             bandExpDb[b] = gDb - wetAmt * bands[(size_t) b].impactGainDb;
         }
 
+        float sums[maxChans];
+        float outPeak = 0.0f;
         for (int ch = 0; ch < chans && ch < maxChans; ++ch)
         {
             float sum = 0.0f;
             for (int b = 0; b < numBands; ++b)
                 sum += bandSig[ch][b] * gain[b];
-            const float y = sum * outGain;
-            data[ch][i] = softClipEnabled ? softClip (y) : y;
+            sums[ch] = sum;
+            outPeak = juce::jmax (outPeak, std::abs (sum));
+        }
+
+        float trim = 1.0f;
+        if constexpr (hasAutoHeadroom)
+        {
+            // Peak envelopes of the input and of the expander's output (before Volume).
+            inPeakEnv  = juce::jmax (inPeak,  inPeakEnv  * peakReleaseMul);
+            outPeakEnv = juce::jmax (outPeak, outPeakEnv * peakReleaseMul);
+            float target = 1.0f;
+            if (autoHeadroomEnabled && outPeakEnv > 1.0e-6f)
+            {
+                // Faded with the bypass crossfade: bypassed, the output is just the
+                // phase-shifted input, so there is no added gain to take back.
+                const float ratio = juce::jlimit (minTrim, 1.0f, inPeakEnv / outPeakEnv);
+                target = 1.0f - wetAmt * (1.0f - ratio);
+            }
+            headroomTrim += (target < headroomTrim ? trimAttackCoeff : trimReleaseCoeff) * (target - headroomTrim);
+            trim = headroomTrim;
+        }
+
+        for (int ch = 0; ch < chans && ch < maxChans; ++ch)
+        {
+            float y;
+            if constexpr (hasAutoHeadroom)
+                y = sums[ch] * trim * outGain;
+            else
+                y = sums[ch] * outGain;
+            y = softClipEnabled ? softClip (y) : y;
+            data[ch][i] = y;
+            blockOutPeak = juce::jmax (blockOutPeak, std::abs (y));
         }
     }
 
@@ -267,6 +313,8 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         meters.impactDb[(size_t) b].store (wetNow * bands[(size_t) b].impactGainDb, std::memory_order_relaxed);
     }
     meters.bassRestoreDb.store (wetNow * bassDb, std::memory_order_relaxed);
+    meters.outputPeak.store (blockOutPeak, std::memory_order_relaxed);
+    meters.headroomTrimDb.store (amplitudeToDb (juce::jmax (headroomTrim, 1.0e-6f)), std::memory_order_relaxed);
 }
 
 } // namespace triexpand
