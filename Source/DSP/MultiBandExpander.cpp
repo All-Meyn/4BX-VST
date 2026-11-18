@@ -58,7 +58,8 @@ void MultiBandExpander::prepare (double newSampleRate, int maxBlockSize, int new
     }
     lastImpactReleaseMs = -1.0f; // force recompute on next setParameters()
 
-    for (auto* sv : { &ratioMinusOne, &transitionDb, &hfTransitionDb, &impactAmount, &outputDb, &wet })
+    for (auto* sv : { &ratioMinusOne, &transitionDb, &hfTransitionDb, &impactAmount, &outputDb, &wet,
+                      &bassExtraRatio, &bassTransitionDb })
         sv->reset (sampleRate, parameterSmoothingSeconds);
 
     reset();
@@ -99,6 +100,8 @@ void MultiBandExpander::setParameters (const Parameters& p) noexcept
     setOrSnap (impactAmount,   juce::jlimit (0.0f, 100.0f, p.impactPercent) / 100.0f, snap);
     setOrSnap (outputDb,       p.outputDb, snap);
     setOrSnap (wet,            p.bypass ? 0.0f : 1.0f, snap);
+    setOrSnap (bassExtraRatio,   juce::jlimit (0.0f, 100.0f, p.bassRestorePercent) / 100.0f * maxBassExtraRatio, snap);
+    setOrSnap (bassTransitionDb, p.bassTransitionDb, snap);
     softClipEnabled = p.softClip;
 
     if (! juce::exactlyEqual (p.impactReleaseMs, lastImpactReleaseMs))
@@ -111,7 +114,9 @@ void MultiBandExpander::setParameters (const Parameters& p) noexcept
 
 float MultiBandExpander::computeBandGainDb (int band, float meanSquareIn, float absIn,
                                             float rMinus1, float pivotDb,
-                                            float impactAmt, float wetAmt) noexcept
+                                            float impactAmt, float wetAmt,
+                                            float* bassContributionDb,
+                                            float baseRMinus1, float basePivotDb) noexcept
 {
     auto& s = bands[(size_t) band];
 
@@ -123,6 +128,9 @@ float MultiBandExpander::computeBandGainDb (int band, float meanSquareIn, float 
     const float levelDb = s.levelDb;
     const float expansionDb = juce::jlimit (maxDownwardExpansionDb, maxUpwardExpansionDb,
                                             rMinus1 * (levelDb - pivotDb));
+    if (bassContributionDb != nullptr)
+        *bassContributionDb = expansionDb - juce::jlimit (maxDownwardExpansionDb, maxUpwardExpansionDb,
+                                                          baseRMinus1 * (levelDb - basePivotDb));
 
     // --- Impact: fast envelope rising above slow envelope -> upward boost ---
     const float fastC = absIn > s.fastEnv ? s.fastAttackCoeff : s.fastReleaseCoeff;
@@ -166,6 +174,7 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
     constexpr int maxChans = 2; // layouts are restricted to mono/stereo by the processor
     float bandSig[maxChans][numBands];
     float bandExpDb[numBands] {};
+    float bassDb = 0.0f;
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -176,8 +185,16 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         const float wetAmt  = wet.getNextValue();
         const float outGain = dbToGain (outputDb.getNextValue());
 
+        float bassRMinus1 = rMinus1, bassPivot = pivot;
+        if constexpr (numBassBands > 0)
+        {
+            bassRMinus1 = rMinus1 + bassExtraRatio.getNextValue();
+            bassPivot   = pivot + bassTransitionDb.getNextValue();
+        }
+
         // Split into bands and gather linked (channel-averaged) detector inputs.
         float ms[numBands] {}, ab[numBands] {};
+        bassDb = 0.0f; // reset per sample; the block-end value goes to the meter
         for (int ch = 0; ch < chans && ch < maxChans; ++ch)
         {
             auto* band = bandSig[ch];
@@ -204,9 +221,22 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         float gain[numBands];
         for (int b = 0; b < numBands; ++b)
         {
-            const float pivotForBand = (b == numBands - 1) ? hfPivot : pivot;
-            const float gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
-                                                rMinus1, pivotForBand, impAmt, wetAmt);
+            float gDb;
+            if (b < numBassBands)
+            {
+                float contribution = 0.0f;
+                gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
+                                         bassRMinus1, bassPivot, impAmt, wetAmt,
+                                         &contribution, rMinus1, pivot);
+                if (std::abs (contribution) >= std::abs (bassDb))
+                    bassDb = contribution;
+            }
+            else
+            {
+                const float pivotForBand = (b == numBands - 1) ? hfPivot : pivot;
+                gDb = computeBandGainDb (b, ms[b] * invChans, ab[b] * invChans,
+                                         rMinus1, pivotForBand, impAmt, wetAmt);
+            }
             gain[b] = dbToGain (gDb);
             bandExpDb[b] = gDb - wetAmt * bands[(size_t) b].impactGainDb;
         }
@@ -230,6 +260,7 @@ void MultiBandExpander::process (juce::AudioBuffer<float>& buffer) noexcept
         meters.expansionDb[(size_t) b].store (bandExpDb[b], std::memory_order_relaxed);
         meters.impactDb[(size_t) b].store (wetNow * bands[(size_t) b].impactGainDb, std::memory_order_relaxed);
     }
+    meters.bassRestoreDb.store (wetNow * bassDb, std::memory_order_relaxed);
 }
 
 } // namespace triexpand

@@ -137,9 +137,10 @@ void TriExpandAudioProcessorEditor::timerCallback()
         impactMax = juce::jmax (impactMax, m.impactDb[b].load (std::memory_order_relaxed));
     }
     shownImpactDb = follow (shownImpactDb, impactMax);
+    shownBassDb = follow (shownBassDb, m.bassRestoreDb.load (std::memory_order_relaxed));
 
     if (front.isVisible())
-        front.setMeterValues (shownExpDb, shownImpactDb);
+        front.setMeterValues (shownExpDb, shownImpactDb, shownBassDb);
 }
 
 void TriExpandAudioProcessorEditor::paint (juce::Graphics& g)

@@ -15,7 +15,11 @@ inline constexpr float meterRowSpacing = constants::numBands == 3 ? 29.0f : 20.0
 inline constexpr float firstMeterRowY  = 34.0f;
 inline constexpr float lastMeterRowY   = firstMeterRowY + meterRowSpacing * (float) (constants::numBands - 1);
 inline constexpr float impactRowY      = lastMeterRowY + 50.0f;
-inline constexpr int   panelHeight     = (int) (impactRowY + 14.0f + 54.0f);
+// Hepta-Expand adds a Bass Restoration meter row under the Impact row.
+inline constexpr bool  hasBassRow      = constants::numBassBands > 0;
+inline constexpr float bassRowY        = impactRowY + 36.0f;
+inline constexpr float lastLegendY     = (hasBassRow ? bassRowY : impactRowY) + 14.0f;
+inline constexpr int   panelHeight     = (int) (lastLegendY + 54.0f);
 inline constexpr float sideOffset      = (float) (panelHeight - 210) * 0.5f;
 static_assert (constants::numBands != 3 || panelHeight == 210, "3-band layout must stay 1000 x 210");
 
@@ -29,7 +33,7 @@ public:
     void resized() override;
 
     // Called from the editor's timer (message thread).
-    void setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb);
+    void setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb, float bassDb = 0.0f);
 
     std::function<void()> onShowRear;
     std::function<void (float)> onDisplayChanged;
@@ -54,6 +58,7 @@ private:
     PanelLookAndFeel lnf;
 
     Stepped volume, expansion, transition, impact;
+    Stepped bass; // Bass Restoration (only shown when hasBassRow)
 
     PanelButton rearButton, bypassButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
@@ -61,6 +66,7 @@ private:
 
     std::array<float, constants::numBands> meterExpDb {};
     float meterImpactDb = 0.0f;
+    float meterBassDb = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FrontPanel)
 };
@@ -88,8 +94,9 @@ private:
 
     juce::Slider releasePot { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
     juce::Slider hfPot      { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow };
+    juce::Slider bassPot    { juce::Slider::RotaryVerticalDrag, juce::Slider::TextBoxBelow }; // only when hasBassRow
     PanelButton softClipButton, frontButton, gpuButton;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment, hfAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment, hfAttachment, bassAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> softClipAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RearPanel)

@@ -49,12 +49,15 @@ FrontPanel::FrontPanel (TriExpandAudioProcessor& p, float& displayLevel)
       volume     ({ -30.0, -20.0, -10.0, 0.0, 10.0 }, displayLevel),
       expansion  ({ 10.0, 20.0, 30.0, 40.0, 50.0 }, displayLevel),
       transition ({ -40.0, -30.0, -20.0, -10.0, 0.0 }, displayLevel),
-      impact     ({ 20.0, 40.0, 60.0, 80.0, 100.0 }, displayLevel)
+      impact     ({ 20.0, 40.0, 60.0, 80.0, 100.0 }, displayLevel),
+      bass       ({ 20.0, 40.0, 60.0, 80.0, 100.0 }, displayLevel)
 {
     setUpStepped (volume,     p.apvts, IDs::volume,     1.0);
     setUpStepped (expansion,  p.apvts, IDs::expansion,  1.0);
     setUpStepped (transition, p.apvts, IDs::transition, 1.0);
     setUpStepped (impact,     p.apvts, IDs::impact,     2.0);
+    if constexpr (hasBassRow)
+        setUpStepped (bass,   p.apvts, IDs::bassRestore, 2.0);
 
     rearButton.setTooltip ("Rear panel: Impact Release, HF Transition, Soft Clip");
     rearButton.onClick = [this] { if (onShowRear) onShowRear(); };
@@ -99,10 +102,13 @@ void FrontPanel::setUpStepped (Stepped& s, juce::AudioProcessorValueTreeState& a
     s.attachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (apvts, paramId, s.column);
 }
 
-void FrontPanel::setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb)
+void FrontPanel::setMeterValues (const std::array<float, constants::numBands>& expansionDb, float impactDb, float bassDb)
 {
     meterExpDb = expansionDb;
     meterImpactDb = impactDb;
+    meterBassDb = bassDb;
+    if constexpr (hasBassRow)
+        repaint (juce::Rectangle<int> ((int) rowX - 4, (int) bassRowY - 8, (int) rowW + 8, 16));
     repaint (juce::Rectangle<int> ((int) rowX - 4, (int) firstMeterRowY - 8, (int) rowW + 8, (int) (lastMeterRowY - firstMeterRowY) + 16));
     repaint (juce::Rectangle<int> ((int) rowX - 4, (int) impactRowY - 8, (int) rowW + 8, 16));
     repaint (bypassButton.getBounds().withY (104 + (int) oy).withHeight (14)); // bypass LED (host automation)
@@ -198,6 +204,14 @@ void FrontPanel::paint (juce::Graphics& g)
     drawImpactRow (g, impactRowY, meterImpactDb);
     drawLegend (g, "IMPACT RESTORATION", { rowX, impactRowY + 14.0f, rowW, 10.0f }, 8.5f);
 
+    if constexpr (hasBassRow)
+    {
+        // Centre-zero like the gain rows: yellow = Bass Restoration pulling the bass down,
+        // red = pushing it up, relative to the main expansion.
+        drawGainRow (g, bassRowY, meterBassDb);
+        drawLegend (g, "BASS RESTORATION", { rowX, bassRowY + 14.0f, rowW, 10.0f }, 8.5f);
+    }
+
     // Transition level & impact restoration columns.
     {
         const auto b = transition.column.getBounds().toFloat();
@@ -212,15 +226,24 @@ void FrontPanel::paint (juce::Graphics& g)
     }
     drawArrows (g, transition);
     drawArrows (g, impact);
+    if constexpr (hasBassRow)
+    {
+        drawArrows (g, bass);
+        drawLegend (g, "BASS",        { 698.0f, 156.0f + oy, 80.0f, 10.0f }, 8.5f);
+        drawLegend (g, "RESTORATION", { 698.0f, 166.0f + oy, 80.0f, 10.0f }, 8.5f);
+    }
     drawLegend (g, "TRANSITION", { 548.0f, 156.0f + oy, 72.0f, 10.0f }, 8.5f);
     drawLegend (g, "LEVEL",      { 548.0f, 166.0f + oy, 72.0f, 10.0f }, 8.5f);
     drawLegend (g, "IMPACT",      { 622.0f, 156.0f + oy, 80.0f, 10.0f }, 8.5f);
     drawLegend (g, "RESTORATION", { 622.0f, 166.0f + oy, 80.0f, 10.0f }, 8.5f);
 
     // Model legend, top right.
-    drawLegend (g, "MULTI-BAND EXPANDER", { 715.0f, 30.0f + oy, 170.0f, 10.0f }, 9.0f);
-    drawLegend (g, "WITH",                { 715.0f, 41.0f + oy, 170.0f, 10.0f }, 9.0f);
-    drawLegend (g, "IMPACT RESTORATION",  { 715.0f, 52.0f + oy, 170.0f, 10.0f }, 9.0f);
+    // Moved right when the Bass Restoration column takes its place.
+    const float legendX = hasBassRow ? 765.0f : 715.0f;
+    drawLegend (g, "MULTI-BAND EXPANDER", { legendX, 30.0f + oy, 170.0f, 10.0f }, 9.0f);
+    drawLegend (g, "WITH",                { legendX, 41.0f + oy, 170.0f, 10.0f }, 9.0f);
+    drawLegend (g, hasBassRow ? "IMPACT & BASS RESTORATION" : "IMPACT RESTORATION",
+                { legendX - 10.0f, 52.0f + oy, 190.0f, 10.0f }, 9.0f);
 
     // Dark receiver window (decorative, as on the hardware).
     g.setColour (juce::Colour (0xff0a0a0b));
@@ -253,6 +276,8 @@ void FrontPanel::resized()
     layoutStepped (expansion,  239, 222, 256);
     layoutStepped (transition, 577, 561, 595);
     layoutStepped (impact,     654, 638, 672);
+    if constexpr (hasBassRow)
+        layoutStepped (bass,   731, 715, 749);
 
     bypassButton.setBounds (900, 128 + dy, 30, 14);
     displaySlider.setBounds (952, 82 + dy, 16, 64);
@@ -262,15 +287,18 @@ void FrontPanel::resized()
 RearPanel::RearPanel (TriExpandAudioProcessor& p, const float& displayLevel)
     : display (displayLevel)
 {
-    for (auto* pot : { &releasePot, &hfPot })
+    for (auto* pot : { &releasePot, &hfPot, &bassPot })
     {
         pot->setLookAndFeel (&lnf);
         pot->setTextBoxStyle (juce::Slider::TextBoxBelow, false, 70, 14);
         pot->setMouseDragSensitivity (200);
-        addAndMakeVisible (*pot);
+        if (pot != &bassPot || hasBassRow)
+            addAndMakeVisible (*pot);
     }
     releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (p.apvts, IDs::impactRelease, releasePot);
     hfAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (p.apvts, IDs::hfTransition, hfPot);
+    if constexpr (hasBassRow)
+        bassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (p.apvts, IDs::bassTransition, bassPot);
 
     softClipButton.setClickingTogglesState (true);
     softClipButton.onClick = [this] { repaint(); };
@@ -310,6 +338,7 @@ RearPanel::~RearPanel()
 {
     releasePot.setLookAndFeel (nullptr);
     hfPot.setLookAndFeel (nullptr);
+    bassPot.setLookAndFeel (nullptr);
 }
 
 void RearPanel::paint (juce::Graphics& g)
@@ -356,6 +385,14 @@ void RearPanel::paint (juce::Graphics& g)
     drawLegend (g, "dB", { hfPot.getX() + 0.0f, (float) hfPot.getBottom() + 1.0f, (float) hfPot.getWidth(), 9.0f }, 7.5f,
                 juce::Justification::centred, colours::legend.withAlpha (0.6f));
 
+    if constexpr (hasBassRow)
+    {
+        drawLegend (g, "BASS", { bassPot.getX() - 10.0f, 52.0f + oy, (float) bassPot.getWidth() + 20.0f, 10.0f }, 8.5f);
+        drawLegend (g, "TRANSITION LEVEL", { bassPot.getX() - 20.0f, 62.0f + oy, (float) bassPot.getWidth() + 40.0f, 10.0f }, 8.5f);
+        drawLegend (g, "dB", { bassPot.getX() + 0.0f, (float) bassPot.getBottom() + 1.0f, (float) bassPot.getWidth(), 9.0f }, 7.5f,
+                    juce::Justification::centred, colours::legend.withAlpha (0.6f));
+    }
+
     const auto sb = softClipButton.getBounds().toFloat();
     drawLed (g, juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ sb.getCentreX(), sb.getY() - 10.0f }),
              colours::ledRed, softClipButton.getToggleState() ? 1.0f : 0.0f, display);
@@ -379,6 +416,7 @@ void RearPanel::resized()
     const int dy = (int) oy;
     releasePot.setBounds (330, 76 + dy, 80, 96);
     hfPot.setBounds (480, 76 + dy, 80, 96);
+    bassPot.setBounds (200, 76 + dy, 80, 96);
     softClipButton.setBounds (620, 112 + dy, 30, 14);
     gpuButton.setBounds (700, 112 + dy, 30, 14);
     frontButton.setBounds (920, 126 + dy, 30, 14);

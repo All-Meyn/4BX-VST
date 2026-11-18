@@ -29,6 +29,8 @@ Per band, both follow the same gain law.
 | Volume | −40 to +10 dB | Output level. |
 | Bypass | on/off | Removes expansion and impact; Volume still applies (as on the hardware). |
 | Soft Clip | on/off | Smooth limiting above −1 dBFS so peaks never exceed 0 dBFS. Off by default. |
+| Bass Restoration *(Hepta-Expand)* | 0–100 % | Extra expansion in the bass bands (SUB + LOW, below 150 Hz), on top of Expansion: 100 % adds +0.5 to the ratio (50 % Expansion + 100 % Bass = 1:2 in the bass). Bass above its pivot gets louder, bass below it quieter. 0 % = off. |
+| Bass Transition *(Hepta-Expand, rear)* | ±10 dB | Offsets the pivot of the bass bands only. Lower it to push more of the bass upward. |
 
 ### Interface
 
@@ -46,7 +48,8 @@ choice with the switch is saved with the session.
 
 Crossovers are Linkwitz-Riley 24 dB/oct, phase-aligned so the bands sum flat.
 Stereo channels share one detector per band. Hepta-Expand's faceplate is taller,
-with one gain-change row per band. Meters: yellow = downward expansion
+with one gain-change row per band, plus a Bass Restoration meter row showing the
+extra gain it adds to the bass (yellow = down, red = up). Meters: yellow = downward expansion
 to −20 dB, red = upward expansion to +12 dB; IMP = impact boost (loudest band).
 
 All tunable constants live in `Source/DSP/ExpanderConstants.h`, each marked as

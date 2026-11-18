@@ -31,6 +31,9 @@ namespace triexpand::constants
     inline constexpr float impactFastReleaseSeconds[numBands] = { 0.080f, 0.020f, 0.010f };
     inline constexpr float impactSlowTimeSeconds[numBands]    = { 0.150f, 0.080f, 0.040f };
     inline constexpr float impactReleaseBandScale[numBands]   = { 1.5f, 1.0f, 0.6f };
+
+    // No Bass Restoration in Tri-Expand.
+    inline constexpr int numBassBands = 0;
 #else
     // ---- Hepta-Expand: 7 bands ----
     // Crossovers. [chosen] Keeps Tri-Expand's 150 Hz and 6 kHz points, ~1.3 octaves apart.
@@ -46,7 +49,14 @@ namespace triexpand::constants
     inline constexpr float impactFastReleaseSeconds[numBands] = { 0.100f, 0.080f, 0.040f, 0.020f, 0.015f, 0.012f, 0.010f };
     inline constexpr float impactSlowTimeSeconds[numBands]    = { 0.200f, 0.150f, 0.100f, 0.080f, 0.060f, 0.050f, 0.040f };
     inline constexpr float impactReleaseBandScale[numBands]   = { 1.6f, 1.5f, 1.25f, 1.0f, 0.85f, 0.7f, 0.6f };
+
+    // Bass Restoration acts on the bands below 150 Hz: SUB and LOW. [chosen]
+    inline constexpr int numBassBands = 2;
 #endif
+    // Bass Restoration: extra expansion ratio added to the bass bands at 100 %
+    // (on top of the global Expansion; 50 % Expansion + 100 % Bass = 1:2 in the bass). [chosen]
+    inline constexpr float maxBassExtraRatio = 0.5f;
+    static_assert (numBassBands < numBands, "bass bands must leave at least one other band");
     // The HF Transition trim applies to the top band.
 
     // Expansion ratio range. [manual: 1:1 to 1:1.5, "0 to 50%", each band]

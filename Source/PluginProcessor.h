@@ -45,7 +45,12 @@ public:
         static constexpr const char* volume        = "volume";
         static constexpr const char* bypass        = "expanderBypass";
         static constexpr const char* softClip      = "softClip";
+        // Hepta-Expand only (constants::numBassBands > 0):
+        static constexpr const char* bassRestore    = "bassRestore";
+        static constexpr const char* bassTransition = "bassTransition";
     };
+
+    static constexpr bool hasBassRestoration = triexpand::constants::numBassBands > 0;
 
     juce::AudioProcessorValueTreeState apvts;
 
@@ -64,6 +69,8 @@ private:
     std::atomic<float>* volumeParam        = nullptr;
     std::atomic<float>* bypassParam        = nullptr;
     std::atomic<float>* softClipParam      = nullptr;
+    std::atomic<float>* bassRestoreParam    = nullptr; // null in Tri-Expand
+    std::atomic<float>* bassTransitionParam = nullptr; // null in Tri-Expand
 
     triexpand::MultiBandExpander expander;
 

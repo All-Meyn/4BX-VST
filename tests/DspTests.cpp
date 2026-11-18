@@ -299,6 +299,49 @@ int main()
         check (peak <= 6.01f && peak > 3.0f, "impact 50%: big attack boosts, but at most +6 dB", peak);
     }
 
+    // 7d. Bass Restoration (Hepta-Expand only): extra expansion in the bass bands.
+    if constexpr (numBassBands > 0)
+    {
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.bassRestorePercent = 100.0f;           // bass ratio 1:2 (0.5 + 0.5)
+        const int sub = bandOf (40.0);
+
+        // Bass band follows the bass ratio: (R_bass - 1) * (band level - pivot).
+        MultiBandExpander ex;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex);
+        const double measured = ex.getMeters().expansionDb[(size_t) sub].load();
+        const double bandLevel = -10.0 + bandResponseDb (40.0, sub);
+        const double expected = 1.0 * (bandLevel - p.transitionDb);
+        char name[96];
+        std::snprintf (name, sizeof name, "bass 100%%: 40 Hz band at 1:2, expect %+.2f dB", expected);
+        check (std::abs (measured - expected) < 0.3, name, measured);
+
+        // Meter shows the extra gain relative to the main expansion: 0.5 * (level - pivot).
+        const double bassMeter = ex.getMeters().bassRestoreDb.load();
+        check (std::abs (bassMeter - 0.5 * (bandLevel - p.transitionDb)) < 0.3, "bass meter = extra gain from Bass Restoration", bassMeter);
+
+        // Bands above the bass are untouched.
+        const auto [mid, midExpected] = bandLawDb (p, midHz, -10.0, midBand);
+        check (std::abs (mid - midExpected) < 0.3, "bass 100%: mid band unaffected", mid);
+
+        // Bass Transition moves only the bass pivot: +10 dB -> 40 Hz band 10 dB further below its pivot.
+        p.bassTransitionDb = 10.0f;
+        MultiBandExpander ex2;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex2);
+        const double shifted = ex2.getMeters().expansionDb[(size_t) sub].load();
+        check (std::abs (shifted - (expected - 10.0)) < 0.3, "bass transition +10 dB: bass gain 10 dB lower at 1:2", shifted);
+
+        // 0 % Bass Restoration: bass band follows the normal law and the meter reads 0.
+        p.bassRestorePercent = 0.0f;
+        p.bassTransitionDb = 0.0f;
+        MultiBandExpander ex3;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex3);
+        check (std::abs (ex3.getMeters().expansionDb[(size_t) sub].load() - 0.5 * (bandLevel - p.transitionDb)) < 0.3
+                   && std::abs (ex3.getMeters().bassRestoreDb.load()) < 1.0e-6f,
+               "bass 0%: normal law in the bass, meter 0", ex3.getMeters().bassRestoreDb.load());
+    }
+
     // 8. Expander bypass removes expansion and impact but keeps output volume.
     {
         auto p = neutral();

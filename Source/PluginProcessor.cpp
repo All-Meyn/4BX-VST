@@ -18,6 +18,13 @@ TriExpandAudioProcessor::TriExpandAudioProcessor()
 
     jassert (expansionParam && transitionParam && hfTransitionParam && impactParam
              && impactReleaseParam && volumeParam && bypassParam && softClipParam);
+
+    if constexpr (hasBassRestoration)
+    {
+        bassRestoreParam    = apvts.getRawParameterValue (ParamIDs::bassRestore);
+        bassTransitionParam = apvts.getRawParameterValue (ParamIDs::bassTransition);
+        jassert (bassRestoreParam && bassTransitionParam);
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::createParameterLayout()
@@ -57,6 +64,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::cre
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::bypass, 1 }, "Expander Bypass", offOn, 0));
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::softClip, 1 }, "Soft Clip", offOn, 0));
 
+    if constexpr (hasBassRestoration)
+    {
+        // Defaults of 0 leave the sound exactly as without the feature, so older
+        // sessions (which don't store these) load unchanged.
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::bassRestore, 1 }, "Bass Restoration",
+            NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, pct));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::bassTransition, 1 }, "Bass Transition Trim",
+            NormalisableRange<float> (-10.0f, 10.0f, 0.1f), 0.0f, dB));
+    }
+
     return layout;
 }
 
@@ -71,6 +88,11 @@ void TriExpandAudioProcessor::pushParametersToDsp() noexcept
     p.outputDb         = volumeParam->load();
     p.bypass           = bypassParam->load() >= 0.5f;
     p.softClip         = softClipParam->load() >= 0.5f;
+    if constexpr (hasBassRestoration)
+    {
+        p.bassRestorePercent = bassRestoreParam->load();
+        p.bassTransitionDb   = bassTransitionParam->load();
+    }
     expander.setParameters (p);
 }
 

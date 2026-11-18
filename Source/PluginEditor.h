@@ -37,6 +37,7 @@ private:
     // Meter values shown, with decay so short peaks stay visible.
     std::array<float, triexpand::constants::numBands> shownExpDb {};
     float shownImpactDb = 0.0f;
+    float shownBassDb = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TriExpandAudioProcessorEditor)
 };

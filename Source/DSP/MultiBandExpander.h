@@ -27,6 +27,8 @@ public:
         float outputDb         = 0.0f;    // post-expander volume
         bool  bypass           = false;   // removes expansion + impact only
         bool  softClip         = false;
+        float bassRestorePercent = 0.0f;  // 0..100: extra expansion in the bass bands (Hepta-Expand only)
+        float bassTransitionDb   = 0.0f;  // offset added to the bass bands' pivot (Hepta-Expand only)
     };
 
     // Gain readings for the UI. Written by the audio thread, read by the UI thread.
@@ -34,6 +36,8 @@ public:
     {
         std::array<std::atomic<float>, constants::numBands> expansionDb {};
         std::array<std::atomic<float>, constants::numBands> impactDb {};
+        // Extra gain Bass Restoration adds to the bass (largest of the bass bands, dB, +/-).
+        std::atomic<float> bassRestoreDb { 0.0f };
     };
 
     void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -66,9 +70,13 @@ private:
     };
 
     static float onePoleCoeff (double seconds, double sampleRate) noexcept;
+    // `bassContributionDb`, when given, receives how much the band's expansion differs
+    // from what `baseRatioMinusOne` / `basePivotDb` (the non-bass settings) would give.
     float computeBandGainDb (int band, float meanSquareIn, float absIn,
                              float ratioMinusOne, float transitionDb,
-                             float impactAmount, float wet) noexcept;
+                             float impactAmount, float wet,
+                             float* bassContributionDb = nullptr,
+                             float baseRatioMinusOne = 0.0f, float basePivotDb = 0.0f) noexcept;
     static float softClip (float x) noexcept;
 
     double sampleRate = 44100.0;
@@ -94,7 +102,8 @@ private:
     std::array<BandState, constants::numBands> bands {};
 
     juce::SmoothedValue<float> ratioMinusOne, transitionDb, hfTransitionDb,
-                               impactAmount, outputDb, wet;
+                               impactAmount, outputDb, wet,
+                               bassExtraRatio, bassTransitionDb; // used only when numBassBands > 0
     bool softClipEnabled = false;
 
     Meters meters;
