@@ -1,3 +1,0 @@
-/home/user/4bx-vst/build9/vst3_helpers/FourBX/CMakeFiles/vst3_helper.dir
-/home/user/4bx-vst/build9/vst3_helpers/FourBX/CMakeFiles/edit_cache.dir
-/home/user/4bx-vst/build9/vst3_helpers/FourBX/CMakeFiles/rebuild_cache.dir

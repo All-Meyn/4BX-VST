@@ -1,6 +1,7 @@
 # Build output
 build/
 build-*/
+build[0-9]*/
 cmake-build-*/
 out/
 
