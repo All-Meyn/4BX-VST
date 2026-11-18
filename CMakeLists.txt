@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(JUCE)
 # Two plugins share all source code; the band count is set per target with
 # EXPANDER_NUM_BANDS (see Source/DSP/ExpanderConstants.h).
 #   Tri-Expand    3 bands (LF / MF / HF)
+#   Quad-Expand   4 bands (crossovers 150 Hz / 1 kHz / 6 kHz)
 #   Hepta-Expand  7 bands (crossovers 60 / 150 / 400 / 1k / 2.5k / 6k Hz)
 # Each has its own plugin code, so hosts treat them as separate plugins.
 function(add_expander_plugin target product_name bundle_id plugin_code num_bands)
@@ -59,6 +60,7 @@ function(add_expander_plugin target product_name bundle_id plugin_code num_bands
 endfunction()
 
 add_expander_plugin(TriExpand   "Tri-Expand"   "com.allmeyn.triexpand"   Trx3 3)
+add_expander_plugin(QuadExpand  "Quad-Expand"  "com.allmeyn.quadexpand"  Qdx4 4)
 add_expander_plugin(HeptaExpand "Hepta-Expand" "com.allmeyn.heptaexpand" Hpx7 7)
 
 # Offline DSP tests (no host needed), one program per band count:
@@ -67,7 +69,7 @@ add_expander_plugin(HeptaExpand "Hepta-Expand" "com.allmeyn.heptaexpand" Hpx7 7)
 #   ./build/HeptaExpandTests_artefacts/<config>/HeptaExpandTests
 option(TRIEXPAND_BUILD_TESTS "Build the offline DSP test programs" ON)
 if(TRIEXPAND_BUILD_TESTS)
-    foreach(cfg "TriExpandTests;3" "HeptaExpandTests;7")
+    foreach(cfg "TriExpandTests;3" "QuadExpandTests;4" "HeptaExpandTests;7")
         list(GET cfg 0 test_target)
         list(GET cfg 1 num_bands)
         juce_add_console_app(${test_target} PRODUCT_NAME "${test_target}")

@@ -1,5 +1,5 @@
 // Offline checks for triexpand::MultiBandExpander. Exits non-zero on failure.
-// Built once per band count (EXPANDER_NUM_BANDS = 3 or 7).
+// Built once per band count (EXPANDER_NUM_BANDS = 3, 4 or 7).
 #include "DSP/MultiBandExpander.h"
 
 #include <cmath>
@@ -29,7 +29,8 @@ int bandOf (double hz)
 // Test tones well inside a band. With 7 narrow bands a sine at band centre still
 // loses ~2.6 dB to the two neighbouring crossovers, so gain-law checks get a wider
 // tolerance there (the law itself is the same code, checked exactly at 3 bands).
-const double midHz  = numBands == 3 ? 1000.0 : 632.0;   // 3: MF; 7: centre of 400 Hz - 1 kHz
+// 3: MF; 4: centre of LMF (150 Hz - 1 kHz); 7: centre of MID (400 Hz - 1 kHz)
+const double midHz  = numBands == 3 ? 1000.0 : (numBands == 4 ? 387.0 : 632.0);
 const int    midBand = bandOf (midHz);
 const int    topBand = numBands - 1;
 const double lawTol  = 0.5;
@@ -121,7 +122,8 @@ std::pair<double, double> bandLawDb (MultiBandExpander::Parameters p, double hz,
     MultiBandExpander ex;
     run (p, 2.0, sine (hz, levelDb), 2, &ex);
     const double measured = ex.getMeters().expansionDb[(size_t) band].load();
-    const double pivot = p.transitionDb + (band == numBands - 1 ? p.hfTransitionDb : 0.0f);
+    const double pivot = p.transitionDb + (band == numBands - 1 ? p.hfTransitionDb : 0.0f)
+                         + (band < numBassBands ? p.bassTransitionDb : 0.0f) + bandPivotOffsetDb[band];
     const double expected = juce::jlimit ((double) maxDownwardExpansionDb, (double) maxUpwardExpansionDb,
                                           p.expansionPercent / 100.0 * (levelDb + bandResponseDb (hz, band) - pivot));
     return { measured, expected };
@@ -299,6 +301,160 @@ int main()
         check (peak <= 6.01f && peak > 3.0f, "impact 50%: big attack boosts, but at most +6 dB", peak);
     }
 
+    // 7d. Bass Restoration (Hepta-Expand only): extra expansion in the bass bands.
+    if constexpr (numBassBands > 0)
+    {
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.bassRestorePercent = 100.0f;           // bass ratio 1:2 (0.5 + 0.5)
+        const int sub = bandOf (40.0);
+
+        // Bass band follows the bass ratio: (R_bass - 1) * (band level - pivot).
+        MultiBandExpander ex;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex);
+        const double measured = ex.getMeters().expansionDb[(size_t) sub].load();
+        const double bandLevel = -10.0 + bandResponseDb (40.0, sub);
+        const double bassPivot = p.transitionDb + bandPivotOffsetDb[sub];
+        const double expected = 1.0 * (bandLevel - bassPivot);
+        char name[96];
+        std::snprintf (name, sizeof name, "bass 100%%: 40 Hz band at 1:2, expect %+.2f dB", expected);
+        check (std::abs (measured - expected) < 0.3, name, measured);
+
+        // Meter shows the extra gain relative to the main expansion: 0.5 * (level - pivot).
+        const double bassMeter = ex.getMeters().bassRestoreDb.load();
+        check (std::abs (bassMeter - 0.5 * (bandLevel - bassPivot)) < 0.3, "bass meter = extra gain from Bass Restoration", bassMeter);
+
+        // Bands above the bass are untouched.
+        const auto [mid, midExpected] = bandLawDb (p, midHz, -10.0, midBand);
+        check (std::abs (mid - midExpected) < 0.3, "bass 100%: mid band unaffected", mid);
+
+        // Bass Transition moves only the bass pivot: +10 dB -> 40 Hz band 10 dB further below its pivot.
+        p.bassTransitionDb = 10.0f;
+        MultiBandExpander ex2;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex2);
+        const double shifted = ex2.getMeters().expansionDb[(size_t) sub].load();
+        check (std::abs (shifted - (expected - 10.0)) < 0.3, "bass transition +10 dB: bass gain 10 dB lower at 1:2", shifted);
+
+        // 0 % Bass Restoration: bass band follows the normal law and the meter reads 0.
+        p.bassRestorePercent = 0.0f;
+        p.bassTransitionDb = 0.0f;
+        MultiBandExpander ex3;
+        run (p, 2.0, sine (40.0, -10.0), 2, &ex3);
+        check (std::abs (ex3.getMeters().expansionDb[(size_t) sub].load() - 0.5 * (bandLevel - bassPivot)) < 0.3
+                   && std::abs (ex3.getMeters().bassRestoreDb.load()) < 1.0e-6f,
+               "bass 0%: normal law in the bass, meter 0", ex3.getMeters().bassRestoreDb.load());
+    }
+
+    // 7e. Auto Headroom (Hepta-Expand only): output peaks follow input peaks; down only.
+    if constexpr (hasAutoHeadroom)
+    {
+        auto peakDb = [] (const juce::AudioBuffer<float>& b, int start)
+        {
+            float pk = 0.0f;
+            for (int ch = 0; ch < b.getNumChannels(); ++ch)
+                pk = juce::jmax (pk, b.getMagnitude (ch, start, b.getNumSamples() - start));
+            return 20.0 * std::log10 (pk + 1e-12);
+        };
+
+        // Steady upward expansion (+~5 dB) is cancelled at the output.
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.autoHeadroom = true;
+        // Auto Headroom settles over seconds (1 s down), so measure after 8 s.
+        double steady;
+        {
+            auto out = run (p, 9.0, sine (midHz, -10.0));
+            steady = rmsDb (out, (int) (8.0 * sr), (int) (1.0 * sr)) + 10.0;
+        }
+        check (std::abs (steady) < 0.7, "auto headroom: steady +gain cancelled to within its 0.5 dB deadband", steady);
+
+        // Down only: downward expansion is left alone (no make-up gain).
+        const double quiet = steadyGainDb (p, midHz, -30.0);
+        p.autoHeadroom = false;
+        const double quietRef = steadyGainDb (p, midHz, -30.0);
+        check (std::abs (quiet - quietRef) < 0.1, "auto headroom: never boosts (downward expansion unchanged)", quiet - quietRef);
+
+        // Drum-like hits with Impact 100 %: output peaks stay near input peaks.
+        const auto hits = [] (int i)
+        {
+            const double t = i / sr, bt = std::fmod (t, 0.5);
+            return (float) (0.5 * std::exp (-bt * 25) * std::sin (2.0 * juce::MathConstants<double>::pi * 180.0 * bt)
+                            + 0.05 * std::sin (2.0 * juce::MathConstants<double>::pi * 632.0 * t));
+        };
+        auto ph = neutral();
+        ph.impactPercent = 100.0f;
+        ph.expansionPercent = 30.0f;
+        ph.transitionDb = -30.0f;
+        const int settle = (int) (4.0 * sr);
+        double inPk = 0.0;
+        { auto in = run (neutral(), 6.0, hits); ph.bypass = false; (void) in; }
+        {
+            juce::AudioBuffer<float> src (2, (int) (6.0 * sr));
+            for (int i = 0; i < src.getNumSamples(); ++i) for (int ch = 0; ch < 2; ++ch) src.setSample (ch, i, hits (i));
+            inPk = peakDb (src, settle);
+        }
+        ph.autoHeadroom = false;
+        const double offPk = peakDb (run (ph, 6.0, hits), settle) - inPk;
+        ph.autoHeadroom = true;
+        MultiBandExpander hx;
+        const double onPk = peakDb (run (ph, 6.0, hits, 2, &hx), settle) - inPk;
+        std::printf ("INFO  Impact 100%% hits: output peak vs input %+.2f dB without, %+.2f dB with Auto Headroom (trim %.2f dB)\n",
+                     offPk, onPk, hx.getMeters().headroomTrimDb.load());
+        check (offPk > 2.0 && onPk < 1.0, "auto headroom: Impact peaks held within 1 dB of input", onPk);
+
+        // Bypassed: transparent (only Volume applies).
+        auto pb = neutral();
+        pb.autoHeadroom = true;
+        pb.bypass = true;
+        pb.expansionPercent = 50.0f;
+        pb.outputDb = -3.0f;
+        const double byp = steadyGainDb (pb, midHz, -5.0);
+        check (std::abs (byp + 3.0) < 0.1, "auto headroom + bypass: only Volume applies (-3 dB)", byp);
+    }
+
+    // 7f. Auto Transition (Hepta-Expand only): pivots follow each band's long-term level.
+    if constexpr (hasAutoTransition)
+    {
+        auto p = neutral();
+        p.expansionPercent = 50.0f;
+        p.autoTransition = true;
+        const auto bandGain = [&] (const MultiBandExpander::Parameters& prm, const std::function<float (int)>& gen, double seconds)
+        {
+            MultiBandExpander ex;
+            run (prm, seconds, gen, 2, &ex);
+            return (double) ex.getMeters().expansionDb[(size_t) midBand].load();
+        };
+
+        // Steady tones at very different levels both sit at their own average -> ~0 dB.
+        const double loud = bandGain (p, sine (midHz, -10.0), 3.0);
+        const double quiet = bandGain (p, sine (midHz, -35.0), 3.0);
+        check (std::abs (loud) < 0.5 && std::abs (quiet) < 0.5, "auto transition: steady tone ~0 dB at -10 and -35 dBFS", loud - quiet);
+
+        // Transition 10 dB below centre -> pivot 10 dB under the average -> +5 dB at 50 %.
+        auto po = p;
+        po.transitionDb = autoTransitionCentreDb - 10.0f;
+        const double offs = bandGain (po, sine (midHz, -35.0), 3.0);
+        check (std::abs (offs - 5.0) < 0.5, "auto transition: Transition -10 dB offset -> +5 dB", offs);
+
+        // Dynamics still expanded: 4 s at -30 dBFS, then a 10 dB jump; 0.6 s later ~+4..5 dB.
+        const auto step = [] (int i)
+        {
+            const double lvl = i < (int) (4.0 * sr) ? -30.0 : -20.0;
+            return (float) (std::sqrt (2.0) * std::pow (10.0, lvl / 20.0) * std::sin (2.0 * juce::MathConstants<double>::pi * midHz * i / sr));
+        };
+        const double jump = bandGain (p, step, 4.6);
+        check (jump > 3.5 && jump < 5.5, "auto transition: +10 dB jump expanded up (~+5 dB at 50%)", jump);
+
+        // Silence doesn't drag the average down: tone, 3 s silence, same tone -> ~0 dB again.
+        const auto gap = [] (int i)
+        {
+            const bool on = i < (int) (3.0 * sr) || i >= (int) (6.0 * sr);
+            return on ? (float) (std::sqrt (2.0) * std::pow (10.0, -25.0 / 20.0) * std::sin (2.0 * juce::MathConstants<double>::pi * midHz * i / sr)) : 0.0f;
+        };
+        const double afterGap = bandGain (p, gap, 7.5);
+        check (std::abs (afterGap) < 1.0, "auto transition: average survives silence (~0 dB after a gap)", afterGap);
+    }
+
     // 8. Expander bypass removes expansion and impact but keeps output volume.
     {
         auto p = neutral();
@@ -330,7 +486,7 @@ int main()
         MultiBandExpander monoEx;
         auto out = run (p, 2.0, sine (midHz, -10.0), 1, &monoEx);
         const double monoBand = monoEx.getMeters().expansionDb[(size_t) midBand].load();
-        const double monoExpected = 0.5 * (-10.0 + bandResponseDb (midHz, midBand) + 20.0);
+        const double monoExpected = 0.5 * (-10.0 + bandResponseDb (midHz, midBand) + 20.0 - bandPivotOffsetDb[midBand]);
         check (std::abs (monoBand - monoExpected) < 0.3, "mono: band law, mid tone @ -10, 50%", monoBand);
         const double g = rmsDb (out, (int) (1.5 * sr), (int) (0.5 * sr)) + 10.0;
         if (numBands == 3)

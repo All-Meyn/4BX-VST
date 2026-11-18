@@ -27,6 +27,10 @@ public:
         float outputDb         = 0.0f;    // post-expander volume
         bool  bypass           = false;   // removes expansion + impact only
         bool  softClip         = false;
+        float bassRestorePercent = 0.0f;  // 0..100: extra expansion in the bass bands (Hepta-Expand only)
+        float bassTransitionDb   = 0.0f;  // offset added to the bass bands' pivot (Hepta-Expand only)
+        bool  autoHeadroom       = false; // Hepta-Expand only: match output peaks to input peaks
+        bool  autoTransition     = false; // Hepta-Expand only: pivots follow each band's long-term level
     };
 
     // Gain readings for the UI. Written by the audio thread, read by the UI thread.
@@ -34,6 +38,12 @@ public:
     {
         std::array<std::atomic<float>, constants::numBands> expansionDb {};
         std::array<std::atomic<float>, constants::numBands> impactDb {};
+        // Extra gain Bass Restoration adds to the bass (largest of the bass bands, dB, +/-).
+        std::atomic<float> bassRestoreDb { 0.0f };
+        // Largest absolute output sample in the last block (after Volume / Soft Clip).
+        std::atomic<float> outputPeak { 0.0f };
+        // Current Auto Headroom trim in dB (0 or negative).
+        std::atomic<float> headroomTrimDb { 0.0f };
     };
 
     void prepare (double sampleRate, int maxBlockSize, int numChannels);
@@ -51,6 +61,9 @@ private:
     {
         float meanSquare = 0.0f;
         float levelDb = -100.0f;
+        float longTermDb = -100.0f;   // Auto Transition: band's long-term level
+        bool  longTermValid = false;  // set by the first non-silent level
+        int   longTermInitSamples = 0; // fast-adapt samples left after sound first appears
         float fastEnv = 0.0f;
         float slowEnvDb = -100.0f;
         float impactGainDb = 0.0f;
@@ -66,9 +79,13 @@ private:
     };
 
     static float onePoleCoeff (double seconds, double sampleRate) noexcept;
+    // `bassContributionDb`, when given, receives how much the band's expansion differs
+    // from what `baseRatioMinusOne` / `basePivotDb` (the non-bass settings) would give.
     float computeBandGainDb (int band, float meanSquareIn, float absIn,
                              float ratioMinusOne, float transitionDb,
-                             float impactAmount, float wet) noexcept;
+                             float impactAmount, float wet,
+                             float* bassContributionDb = nullptr,
+                             float baseRatioMinusOne = 0.0f, float basePivotDb = 0.0f) noexcept;
     static float softClip (float x) noexcept;
 
     double sampleRate = 44100.0;
@@ -94,8 +111,18 @@ private:
     std::array<BandState, constants::numBands> bands {};
 
     juce::SmoothedValue<float> ratioMinusOne, transitionDb, hfTransitionDb,
-                               impactAmount, outputDb, wet;
+                               impactAmount, outputDb, wet,
+                               bassExtraRatio, bassTransitionDb, // used only when numBassBands > 0
+                               autoTransitionMix;                // used only when hasAutoTransition
+    float autoMixNow = 0.0f;       // current Auto Transition crossfade (0 = fixed pivots, 1 = auto)
+    float longTermCoeff = 0.0f, longTermInitCoeff = 0.0f;
+    int   longTermInitLength = 0;
     bool softClipEnabled = false;
+
+    // Auto Headroom state (used only when constants::hasAutoHeadroom).
+    bool  autoHeadroomEnabled = false;
+    float inPeakEnv = 0.0f, outPeakEnv = 0.0f, headroomTrim = 1.0f;
+    float peakReleaseMul = 0.0f, trimAttackCoeff = 0.0f, trimReleaseCoeff = 0.0f;
 
     Meters meters;
 };

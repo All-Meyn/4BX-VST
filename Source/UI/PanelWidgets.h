@@ -36,14 +36,17 @@ public:
     void paintButton (juce::Graphics&, bool isHighlighted, bool isDown) override;
 };
 
-// A vertical column of five LEDs that is also a vertical slider:
+// A vertical column of LEDs that is also a vertical slider:
 // drag (relative) or scroll to change, double-click to type a value.
-// Each LED stands for one value; LEDs between the current value's neighbours
-// light partially, so in-between settings are visible.
+// Dot mode (five values): each LED stands for one value; LEDs between the current
+// value's neighbours light partially, so in-between settings are visible.
+// Bar mode (N LEDs): the LEDs fill from the bottom like a bar meter, styled like
+// the gain-change rows; the top lit LED fades in partially for in-between values.
 class LedColumn final : public juce::Slider
 {
 public:
     LedColumn (std::array<double, 5> ledValuesBottomToTop, const float& displayLevel);
+    LedColumn (int numBarLeds, const float& displayLevel);
     ~LedColumn() override;
 
     void setStepSize (double s) noexcept { stepSize = s; }
@@ -55,7 +58,8 @@ public:
 private:
     void closeEditor (bool commit);
 
-    std::array<double, 5> ledValues;
+    std::array<double, 5> ledValues {};
+    int barLeds = 0; // > 0: bar mode with this many LEDs
     const float& display;
     double stepSize = 1.0;
     std::unique_ptr<juce::TextEditor> valueEditor;

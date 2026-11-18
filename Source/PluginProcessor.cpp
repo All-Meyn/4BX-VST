@@ -18,6 +18,25 @@ TriExpandAudioProcessor::TriExpandAudioProcessor()
 
     jassert (expansionParam && transitionParam && hfTransitionParam && impactParam
              && impactReleaseParam && volumeParam && bypassParam && softClipParam);
+
+    if constexpr (hasBassRestoration)
+    {
+        bassRestoreParam    = apvts.getRawParameterValue (ParamIDs::bassRestore);
+        bassTransitionParam = apvts.getRawParameterValue (ParamIDs::bassTransition);
+        jassert (bassRestoreParam && bassTransitionParam);
+    }
+
+    if constexpr (hasAutoHeadroom)
+    {
+        autoHeadroomParam = apvts.getRawParameterValue (ParamIDs::autoHeadroom);
+        jassert (autoHeadroomParam);
+    }
+
+    if constexpr (hasAutoTransition)
+    {
+        autoTransitionParam = apvts.getRawParameterValue (ParamIDs::autoTransition);
+        jassert (autoTransitionParam);
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::createParameterLayout()
@@ -57,6 +76,29 @@ juce::AudioProcessorValueTreeState::ParameterLayout TriExpandAudioProcessor::cre
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::bypass, 1 }, "Expander Bypass", offOn, 0));
     layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::softClip, 1 }, "Soft Clip", offOn, 0));
 
+    if constexpr (hasBassRestoration)
+    {
+        // Defaults of 0 leave the sound exactly as without the feature, so older
+        // sessions (which don't store these) load unchanged.
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::bassRestore, 1 }, "Bass Restoration",
+            NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f, pct));
+        layout.add (std::make_unique<AudioParameterFloat> (ParameterID { ParamIDs::bassTransition, 1 }, "Bass Transition Trim",
+            NormalisableRange<float> (-10.0f, 10.0f, 0.1f), 0.0f, dB));
+    }
+
+    if constexpr (hasAutoHeadroom)
+    {
+        // On by default: keeps active output peaks near the input's, so the plugin
+        // doesn't push loud masters into clipping after it.
+        layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::autoHeadroom, 1 }, "Auto Headroom", offOn, 1));
+    }
+
+    if constexpr (hasAutoTransition)
+    {
+        // Off by default: fixed Transition levels unless the user switches it on.
+        layout.add (std::make_unique<AudioParameterChoice> (ParameterID { ParamIDs::autoTransition, 1 }, "Auto Transition", offOn, 0));
+    }
+
     return layout;
 }
 
@@ -71,6 +113,15 @@ void TriExpandAudioProcessor::pushParametersToDsp() noexcept
     p.outputDb         = volumeParam->load();
     p.bypass           = bypassParam->load() >= 0.5f;
     p.softClip         = softClipParam->load() >= 0.5f;
+    if constexpr (hasBassRestoration)
+    {
+        p.bassRestorePercent = bassRestoreParam->load();
+        p.bassTransitionDb   = bassTransitionParam->load();
+    }
+    if constexpr (hasAutoHeadroom)
+        p.autoHeadroom = autoHeadroomParam->load() >= 0.5f;
+    if constexpr (hasAutoTransition)
+        p.autoTransition = autoTransitionParam->load() >= 0.5f;
     expander.setParameters (p);
 }
 
