@@ -17,6 +17,14 @@ VST3 + Standalone, built with [JUCE](https://juce.com) 8 and CMake.
 | Bypass | on/off | Removes expansion and impact; Volume still applies (as on the hardware). |
 | Soft Clip | on/off | Smooth limiting above −1 dBFS so peaks never exceed 0 dBFS. Off by default. |
 
+### Interface
+
+The window is styled as a hardware faceplate and scales with a fixed aspect ratio.
+Volume, Expansion, Transition and Impact use ▼/▲ buttons (hold to repeat) with an
+LED column as the readout; you can also drag or scroll a column, or double-click it
+to type a value. **REAR PANEL** flips to the back, which holds Impact Release,
+HF Transition and Soft Clip. **DISPLAY** sets LED brightness (saved with the session).
+
 Bands: LF < 150 Hz, MF 150 Hz–6 kHz, HF > 6 kHz (Linkwitz-Riley 24 dB/oct; sums flat).
 Stereo channels share one detector per band. Meters: yellow = downward expansion
 to −20 dB, red = upward expansion to +12 dB; IMP = impact boost (loudest band).
@@ -58,5 +66,6 @@ Turn it off with `-DFOURBX_BUILD_TESTS=OFF`.
 - `Source/DSP/ThreeBandExpander.*` — the DSP (no plugin dependencies)
 - `Source/DSP/ExpanderConstants.h` — crossover points, time constants, limits
 - `Source/PluginProcessor.*` — parameters, state, host glue
-- `Source/PluginEditor.*` — UI and meters
+- `Source/PluginEditor.*` — window scaling, panel flip, meter updates
+- `Source/UI/` — faceplate widgets (LEDs, buttons, pots) and front/rear panels
 - `tests/DspTests.cpp` — offline DSP tests

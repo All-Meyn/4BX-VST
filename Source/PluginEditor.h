@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "UI/Panels.h"
 
 class FourBXAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                          private juce::Timer
@@ -14,27 +15,22 @@ public:
 
 private:
     void timerCallback() override;
-    void drawGainMeter (juce::Graphics&, juce::Rectangle<int> area, const char* label, float expDb) const;
-    void drawImpactMeter (juce::Graphics&, juce::Rectangle<int> area, float impactDb) const;
-
-    struct Knob
-    {
-        juce::Slider slider { juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow };
-        juce::Label label;
-        std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-    };
+    void showRear (bool rear);
 
     FourBXAudioProcessor& processor;
 
-    std::array<Knob, 6> knobs;
-    juce::ToggleButton bypassButton { "Bypass" }, softClipButton { "Soft Clip" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment, softClipAttachment;
+    // LED brightness from the Display slider; UI-only, saved with the session
+    // as a property of the plugin state (not a host-automatable parameter).
+    float displayLevel = 1.0f;
 
-    // Meter values shown, with simple decay so short peaks stay visible.
+    juce::Component content; // fixed 1000 x 210 space, scaled to the window
+    fourbx::ui::FrontPanel front;
+    fourbx::ui::RearPanel rear;
+    juce::TooltipWindow tooltips { this, 600 };
+
+    // Meter values shown, with decay so short peaks stay visible.
     std::array<float, fourbx::constants::numBands> shownExpDb {};
     float shownImpactDb = 0.0f;
-
-    juce::Rectangle<int> meterArea;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FourBXAudioProcessorEditor)
 };
