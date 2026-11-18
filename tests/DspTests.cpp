@@ -1,11 +1,11 @@
-// Offline checks for fourbx::ThreeBandExpander. Exits non-zero on failure.
+// Offline checks for triexpand::ThreeBandExpander. Exits non-zero on failure.
 #include "DSP/ThreeBandExpander.h"
 
 #include <cmath>
 #include <cstdio>
 #include <functional>
 
-using fourbx::ThreeBandExpander;
+using triexpand::ThreeBandExpander;
 
 namespace
 {

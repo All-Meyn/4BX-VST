@@ -6,7 +6,7 @@
 // Values marked [chosen] are NOT documented there; they are our own design
 // choices and are the first things to adjust by ear.
 
-namespace fourbx::constants
+namespace triexpand::constants
 {
     inline constexpr int numBands = 3;
 

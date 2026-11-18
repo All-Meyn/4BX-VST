@@ -4,7 +4,7 @@
 #include <array>
 
 // Building blocks for the hardware-style faceplate.
-namespace fourbx::ui
+namespace triexpand::ui
 {
 
 namespace colours
@@ -76,4 +76,4 @@ public:
     juce::Label* createSliderTextBox (juce::Slider&) override;
 };
 
-} // namespace fourbx::ui
+} // namespace triexpand::ui

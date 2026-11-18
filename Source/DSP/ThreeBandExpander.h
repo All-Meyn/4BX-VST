@@ -5,7 +5,7 @@
 #include <atomic>
 #include "ExpanderConstants.h"
 
-namespace fourbx
+namespace triexpand
 {
 
 // Three-band, linear-in-dB upward/downward expander with transient
@@ -85,4 +85,4 @@ private:
     Meters meters;
 };
 
-} // namespace fourbx
+} // namespace triexpand

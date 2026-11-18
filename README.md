@@ -1,4 +1,4 @@
-# 4BX-VST
+# Tri-Expand
 
 A 3-band dynamic-range expander with transient "impact" enhancement, modelled on
 the behaviour described in the owner's manual of a classic 1980s hi-fi expander.
@@ -63,8 +63,8 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Output: `build/FourBX_artefacts/Release/VST3/4BX.vst3` and
-`build/FourBX_artefacts/Release/Standalone/4BX`.
+Output: `build/TriExpand_artefacts/Release/VST3/Tri-Expand.vst3` and
+`build/TriExpand_artefacts/Release/Standalone/Tri-Expand`.
 
 ## Tests
 
@@ -72,11 +72,11 @@ An offline test program checks the DSP (flat crossover sum, expansion law,
 gain limits, HF trim, impact behaviour, bypass, soft clip, mono):
 
 ```bash
-cmake --build build --target FourBXTests
-./build/FourBXTests_artefacts/Release/FourBXTests
+cmake --build build --target TriExpandTests
+./build/TriExpandTests_artefacts/Release/TriExpandTests
 ```
 
-Turn it off with `-DFOURBX_BUILD_TESTS=OFF`.
+Turn it off with `-DTRIEXPAND_BUILD_TESTS=OFF`.
 
 ## Layout
 
