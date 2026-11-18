@@ -31,7 +31,9 @@ target_sources(FourBX
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
-        Source/DSP/ThreeBandExpander.cpp)
+        Source/DSP/ThreeBandExpander.cpp
+        Source/UI/PanelWidgets.cpp
+        Source/UI/Panels.cpp)
 
 target_compile_definitions(FourBX
     PUBLIC
