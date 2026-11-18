@@ -23,6 +23,24 @@ LOW −3.4, LMID −5.8, MID/HMID −6.1, PRES −6.3, AIR 0 dB). Each band then
 the same tonal balance; without it the mids and presence were pulled ~3 dB further
 down. Offsets live in `ExpanderConstants.h` (`bandPivotOffsetDb`).
 
+
+## Screenshots
+
+### Tri-Expand
+![Tri-Expand front panel](docs/images/tri-expand-front.png)
+![Tri-Expand rear panel](docs/images/tri-expand-rear.png)
+
+### Tetra-Expand
+![Tetra-Expand front panel](docs/images/tetra-expand-front.png)
+![Tetra-Expand rear panel](docs/images/tetra-expand-rear.png)
+
+### Hepta-Expand
+![Hepta-Expand front panel](docs/images/hepta-expand-front.png)
+![Hepta-Expand rear panel](docs/images/hepta-expand-rear.png)
+
+*Rendered from the plugin code with test audio playing. On Windows the rear panel also
+shows a GPU DRAW switch.*
+
 ## Controls
 
 | Control | Range | What it does |
