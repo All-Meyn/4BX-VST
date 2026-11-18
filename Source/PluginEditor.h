@@ -34,6 +34,13 @@ private:
     fourbx::ui::RearPanel rear;
     juce::TooltipWindow tooltips { this, 600 };
 
+    // TEMPORARY diagnostics strip.
+    juce::Label diagLabel;
+    int diagTicks = 0, diagTicksAtLast = 0, diagPaintsAtLast = 0;
+    uint32_t diagBlocksAtLast = 0;
+    juce::uint32 diagLastMs = 0;
+    void updateDiagnostics();
+
     // Meter values shown, with decay so short peaks stay visible.
     std::array<float, fourbx::constants::numBands> shownExpDb {};
     float shownImpactDb = 0.0f;
